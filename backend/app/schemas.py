@@ -247,3 +247,39 @@ class DashboardSummary(BaseModel):
     maintenance_items: int
     by_area: list[DashboardAreaStat]
     by_status: list[DashboardStatusStat]
+
+
+class DashboardMovementStat(BaseModel):
+    item_id: int
+    item_name: str
+    total_outgoing: int
+
+
+class DashboardRestockSuggestion(BaseModel):
+    item_id: int
+    item_name: str
+    quantity_available: int
+    min_stock: int
+    suggested_restock: int
+    demand_velocity_30d: int
+
+
+class DashboardAlertItem(BaseModel):
+    item_id: int
+    item_name: str
+    quantity_available: int
+    min_stock: int
+    deficit: int
+
+
+class DashboardInsights(BaseModel):
+    generated_at: datetime
+    period_days: int
+    outgoing_movements_30d: int
+    incoming_movements_30d: int
+    unique_items_moved_30d: int
+    overdue_rentals: int
+    due_soon_rentals: int
+    top_outgoing_items: list[DashboardMovementStat]
+    critical_stock_items: list[DashboardAlertItem]
+    restock_suggestions: list[DashboardRestockSuggestion]

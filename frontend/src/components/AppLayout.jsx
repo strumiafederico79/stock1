@@ -18,8 +18,9 @@ export default function AppLayout({ children }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand-card">
-          <h1>Stock Control Pro</h1>
-          <p>Depósito, rental y trazabilidad por código de barras.</p>
+          <span className="brand-kicker">Sistema inteligente</span>
+          <h1>PGR STOCK CONTROL</h1>
+          <p>Control avanzado de inventario, rental y trazabilidad operativa en tiempo real.</p>
         </div>
 
         <div className="user-card">
