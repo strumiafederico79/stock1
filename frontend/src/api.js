@@ -62,6 +62,7 @@ export const api = {
   createUser: (payload) => request('/users', { method: 'POST', body: JSON.stringify(payload) }),
   updateUser: (id, payload) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   getDashboard: () => request('/dashboard/summary'),
+  getDashboardInsights: () => request('/dashboard/insights'),
   getAreas: () => request('/catalogs/areas'),
   getCategories: (areaId) => request(`/catalogs/categories${areaId ? `?area_id=${areaId}` : ''}`),
   getLocations: (areaId) => request(`/catalogs/locations${areaId ? `?area_id=${areaId}` : ''}`),
