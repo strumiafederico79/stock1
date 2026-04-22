@@ -91,6 +91,7 @@ export const api = {
   createRental: (payload) => request('/rentals', { method: 'POST', body: JSON.stringify(payload) }),
   addRentalItem: (rentalId, payload) => request(`/rentals/${rentalId}/items`, { method: 'POST', body: JSON.stringify(payload) }),
   returnRentalItem: (rentalId, rentalItemId, payload) => request(`/rentals/${rentalId}/items/${rentalItemId}/return`, { method: 'POST', body: JSON.stringify(payload) }),
+  getRentalReceipt: (rentalId) => request(`/rentals/${rentalId}/receipt.pdf`, { responseType: 'blob' }),
 }
 
 export const assetUrl = (path) => {

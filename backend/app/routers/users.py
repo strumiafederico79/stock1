@@ -81,14 +81,5 @@ def update_user(user_id: int, payload: UserUpdate, current_user: User = Depends(
         details={'updated_fields': list(data.keys())},
     )
     db.commit()
-    log_audit_event(
-        db,
-        action='USER_UPDATED',
-        entity_type='user',
-        entity_id=str(user.id),
-        current_user=current_user,
-        details={'updated_fields': list(data.keys())},
-    )
-    db.commit()
     db.refresh(user)
     return user
