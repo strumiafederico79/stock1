@@ -111,6 +111,15 @@ def create_movement(payload: MovementCreate, db: Session = Depends(get_db), curr
         performed_by_user_id=current_user.id,
     )
     db.add(movement)
+    db.flush()
+    log_audit_event(
+        db,
+        action='MOVEMENT_CREATED',
+        entity_type='movement',
+        entity_id=str(movement.id),
+        current_user=current_user,
+        details={'item_id': movement.item_id, 'movement_type': movement.movement_type.value, 'quantity': movement.quantity},
+    )
     db.commit()
     log_audit_event(
         db,

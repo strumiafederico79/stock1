@@ -38,7 +38,7 @@ export default function ReportsPage() {
         <h3>Inventario</h3>
         <div className="button-row">
           <ReportButton label="CSV" onClick={() => download(() => api.exportInventory('csv'), 'inventory_report.csv')} />
-          <ReportButton label="Excel" onClick={() => download(() => api.exportInventory('excel'), 'inventory_report.xls')} />
+          <ReportButton label="Excel" onClick={() => download(() => api.exportInventory('excel'), 'inventory_report.xlsx')} />
           <ReportButton label="PDF" onClick={() => download(() => api.exportInventory('pdf'), 'inventory_report.pdf')} />
         </div>
       </div>
@@ -46,7 +46,7 @@ export default function ReportsPage() {
         <h3>Rentals</h3>
         <div className="button-row">
           <ReportButton label="CSV" onClick={() => download(() => api.exportRentals('csv'), 'rentals_report.csv')} />
-          <ReportButton label="Excel" onClick={() => download(() => api.exportRentals('excel'), 'rentals_report.xls')} />
+          <ReportButton label="Excel" onClick={() => download(() => api.exportRentals('excel'), 'rentals_report.xlsx')} />
           <ReportButton label="PDF" onClick={() => download(() => api.exportRentals('pdf'), 'rentals_report.pdf')} />
         </div>
       </div>

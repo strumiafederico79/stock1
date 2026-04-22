@@ -51,6 +51,15 @@ def create_rental(payload: RentalCreate, db: Session = Depends(get_db), current_
         raise HTTPException(status_code=400, detail='La fecha de devolución no puede ser menor a la de salida.')
     rental = Rental(**payload.model_dump())
     db.add(rental)
+    db.flush()
+    log_audit_event(
+        db,
+        action='RENTAL_CREATED',
+        entity_type='rental',
+        entity_id=str(rental.id),
+        current_user=current_user,
+        details={'client_name': rental.client_name, 'due_date': str(rental.due_date)},
+    )
     db.commit()
     log_audit_event(
         db,
@@ -102,6 +111,15 @@ def add_item_to_rental(rental_id: int, payload: RentalItemAdd, db: Session = Dep
     db.add(movement)
 
     try:
+        db.flush()
+        log_audit_event(
+            db,
+            action='RENTAL_ITEM_ADDED',
+            entity_type='rental',
+            entity_id=str(rental.id),
+            current_user=current_user,
+            details={'item_id': payload.item_id, 'quantity': payload.quantity},
+        )
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -156,6 +174,14 @@ def return_rental_item(rental_id: int, rental_item_id: int, payload: RentalRetur
     else:
         rental.status = RentalStatus.PARTIAL_RETURN
 
+    log_audit_event(
+        db,
+        action='RENTAL_ITEM_RETURNED',
+        entity_type='rental',
+        entity_id=str(rental.id),
+        current_user=current_user,
+        details={'rental_item_id': rental_item.id, 'quantity': payload.quantity},
+    )
     db.commit()
     log_audit_event(
         db,

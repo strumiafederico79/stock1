@@ -3,6 +3,9 @@ import io
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query, Response
+from openpyxl import Workbook
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
@@ -27,23 +30,45 @@ def _csv_response(filename: str, rows: list[list[str]]) -> Response:
 
 
 def _excel_response(filename: str, headers: list[str], rows: list[list[str]]) -> Response:
-    table_rows = ''.join(
-        f"<tr>{''.join(f'<td>{cell}</td>' for cell in row)}</tr>"
-        for row in rows
-    )
-    html = f"<table><tr>{''.join(f'<th>{h}</th>' for h in headers)}</tr>{table_rows}</table>"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = 'Reporte'
+    sheet.append(headers)
+    for row in rows:
+        sheet.append(row)
+    stream = io.BytesIO()
+    workbook.save(stream)
     return Response(
-        content=html.encode('utf-8'),
-        media_type='application/vnd.ms-excel',
+        content=stream.getvalue(),
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         headers={'Content-Disposition': f'attachment; filename="{filename}"'},
     )
 
 
-def _pdf_like_response(filename: str, title: str, rows: list[list[str]]) -> Response:
-    content = [title, f'Generado: {datetime.now(timezone.utc).isoformat()}', '']
-    content.extend(' | '.join(row) for row in rows)
+def _pdf_response(filename: str, title: str, rows: list[list[str]]) -> Response:
+    stream = io.BytesIO()
+    pdf = canvas.Canvas(stream, pagesize=letter)
+    width, height = letter
+    y = height - 40
+    pdf.setFont('Helvetica-Bold', 13)
+    pdf.drawString(40, y, title)
+    y -= 18
+    pdf.setFont('Helvetica', 9)
+    pdf.drawString(40, y, f'Generado: {datetime.now(timezone.utc).isoformat()}')
+    y -= 22
+
+    for row in rows:
+        line = ' | '.join(row)
+        if y < 40:
+            pdf.showPage()
+            pdf.setFont('Helvetica', 9)
+            y = height - 40
+        pdf.drawString(40, y, line[:150])
+        y -= 14
+    pdf.save()
+
     return Response(
-        content='\n'.join(content).encode('utf-8'),
+        content=stream.getvalue(),
         media_type='application/pdf',
         headers={'Content-Disposition': f'attachment; filename="{filename}"'},
     )
@@ -64,8 +89,8 @@ def export_inventory_report(
     if format == 'csv':
         return _csv_response('inventory_report.csv', [header, *rows])
     if format == 'excel':
-        return _excel_response('inventory_report.xls', header, rows)
-    return _pdf_like_response('inventory_report.pdf', 'Reporte de inventario', [header, *rows])
+        return _excel_response('inventory_report.xlsx', header, rows)
+    return _pdf_response('inventory_report.pdf', 'Reporte de inventario', [header, *rows])
 
 
 @router.get('/rentals')
@@ -94,5 +119,5 @@ def export_rentals_report(
     if format == 'csv':
         return _csv_response('rentals_report.csv', [header, *rows])
     if format == 'excel':
-        return _excel_response('rentals_report.xls', header, rows)
-    return _pdf_like_response('rentals_report.pdf', 'Reporte de rentals', [header, *rows])
+        return _excel_response('rentals_report.xlsx', header, rows)
+    return _pdf_response('rentals_report.pdf', 'Reporte de rentals', [header, *rows])

@@ -29,6 +29,15 @@ def create_user(payload: UserCreate, current_user: User = Depends(require_admin)
     )
     db.add(user)
     try:
+        db.flush()
+        log_audit_event(
+            db,
+            action='USER_CREATED',
+            entity_type='user',
+            entity_id=str(user.id),
+            current_user=current_user,
+            details={'username': user.username, 'role': user.role.value},
+        )
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -63,6 +72,14 @@ def update_user(user_id: int, payload: UserUpdate, current_user: User = Depends(
         user.password_hash = hash_password(data['password'])
 
     db.add(user)
+    log_audit_event(
+        db,
+        action='USER_UPDATED',
+        entity_type='user',
+        entity_id=str(user.id),
+        current_user=current_user,
+        details={'updated_fields': list(data.keys())},
+    )
     db.commit()
     log_audit_event(
         db,

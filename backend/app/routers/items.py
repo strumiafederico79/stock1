@@ -118,6 +118,15 @@ def create_item(payload: ItemCreate, db: Session = Depends(get_db), current_user
         item.qr_value = f'item:{item.code}'
     db.add(item)
     try:
+        db.flush()
+        log_audit_event(
+            db,
+            action='ITEM_CREATED',
+            entity_type='item',
+            entity_id=str(item.id),
+            current_user=current_user,
+            details={'code': item.code, 'name': item.name, 'area_id': item.area_id},
+        )
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -170,6 +179,14 @@ def update_item(item_id: int, payload: ItemUpdate, db: Session = Depends(get_db)
     item.quantity_available = normalized_available
 
     try:
+        log_audit_event(
+            db,
+            action='ITEM_UPDATED',
+            entity_type='item',
+            entity_id=str(item.id),
+            current_user=current_user,
+            details={'updated_fields': list(data.keys())},
+        )
         db.commit()
     except IntegrityError as exc:
         db.rollback()

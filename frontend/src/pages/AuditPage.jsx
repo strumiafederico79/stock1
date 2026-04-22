@@ -34,7 +34,7 @@ export default function AuditPage() {
                 <td>{log.action}</td>
                 <td>{log.entity_type} #{log.entity_id}</td>
                 <td>{log.user_full_name}</td>
-                <td>{log.details_json || '-'}</td>
+                <td>{formatDetails(log.details_json)}</td>
               </tr>
             ))}
             {logs.length === 0 ? (
@@ -45,4 +45,13 @@ export default function AuditPage() {
       </div>
     </div>
   )
+}
+
+function formatDetails(rawValue) {
+  if (!rawValue) return '-'
+  try {
+    return JSON.stringify(JSON.parse(rawValue), null, 2)
+  } catch {
+    return rawValue
+  }
 }
