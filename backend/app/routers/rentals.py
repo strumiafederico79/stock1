@@ -61,6 +61,15 @@ def create_rental(payload: RentalCreate, db: Session = Depends(get_db), current_
         details={'client_name': rental.client_name, 'due_date': str(rental.due_date)},
     )
     db.commit()
+    log_audit_event(
+        db,
+        action='RENTAL_CREATED',
+        entity_type='rental',
+        entity_id=str(rental.id),
+        current_user=current_user,
+        details={'client_name': rental.client_name, 'due_date': str(rental.due_date)},
+    )
+    db.commit()
     return _get_rental_or_404(db, rental.id)
 
 
@@ -115,6 +124,15 @@ def add_item_to_rental(rental_id: int, payload: RentalItemAdd, db: Session = Dep
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail='El ítem ya fue agregado a este rental.') from exc
+    log_audit_event(
+        db,
+        action='RENTAL_ITEM_ADDED',
+        entity_type='rental',
+        entity_id=str(rental.id),
+        current_user=current_user,
+        details={'item_id': payload.item_id, 'quantity': payload.quantity},
+    )
+    db.commit()
     return _get_rental_or_404(db, rental_id)
 
 
@@ -156,6 +174,15 @@ def return_rental_item(rental_id: int, rental_item_id: int, payload: RentalRetur
     else:
         rental.status = RentalStatus.PARTIAL_RETURN
 
+    log_audit_event(
+        db,
+        action='RENTAL_ITEM_RETURNED',
+        entity_type='rental',
+        entity_id=str(rental.id),
+        current_user=current_user,
+        details={'rental_item_id': rental_item.id, 'quantity': payload.quantity},
+    )
+    db.commit()
     log_audit_event(
         db,
         action='RENTAL_ITEM_RETURNED',
