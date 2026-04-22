@@ -14,7 +14,7 @@ cp .env.example .env
 
 Editar `.env` con tu backend:
 ```env
-EXPO_PUBLIC_API_URL=http://<IP_DE_TU_BACKEND>:8000/api/v1
+EXPO_PUBLIC_API_URL=http://3.88.51.188/api/v1
 ```
 
 ## Ejecutar

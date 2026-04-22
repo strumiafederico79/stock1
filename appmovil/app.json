@@ -26,7 +26,7 @@
       "expo-secure-store"
     ],
     "extra": {
-      "apiBaseUrl": "http://TU_IP_LOCAL:8000/api/v1"
+      "apiBaseUrl": "http://3.88.51.188/api/v1"
     }
   }
 }
