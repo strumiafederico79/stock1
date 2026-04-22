@@ -5,8 +5,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_current_user
-from app.models import Area, Item, ItemStatus, Movement, MovementType, Rental, RentalStatus, User
+from app.dependencies import require_permission
+from app.models import Area, Item, ItemStatus, Movement, MovementType, Rental, RentalStatus, User, UserRole
 from app.schemas import (
     DashboardAlertItem,
     DashboardAreaStat,
@@ -15,13 +15,14 @@ from app.schemas import (
     DashboardRestockSuggestion,
     DashboardStatusStat,
     DashboardSummary,
+    RoleDashboardOverview,
 )
 
 router = APIRouter(prefix='/dashboard', tags=['dashboard'])
 
 
 @router.get('/summary', response_model=DashboardSummary)
-def get_dashboard_summary(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def get_dashboard_summary(db: Session = Depends(get_db), _: User = Depends(require_permission('dashboard.view'))):
     total_items = db.scalar(select(func.count(Item.id))) or 0
     total_units = db.scalar(select(func.coalesce(func.sum(Item.quantity_total), 0))) or 0
     total_available_units = db.scalar(select(func.coalesce(func.sum(Item.quantity_available), 0))) or 0
@@ -52,8 +53,31 @@ def get_dashboard_summary(db: Session = Depends(get_db), _: User = Depends(get_c
     )
 
 
+@router.get('/role-overview', response_model=RoleDashboardOverview)
+def get_role_overview(current_user: User = Depends(require_permission('dashboard.view'))):
+    if current_user.role == UserRole.ADMIN:
+        return RoleDashboardOverview(
+            role=current_user.role,
+            title='Vista Administrador',
+            recommended_actions=[
+                'Revisar alertas críticas y programaciones de reportes.',
+                'Validar precios por alquiler y comprobantes emitidos.',
+                'Auditar cambios de stock y usuarios.',
+            ],
+        )
+    return RoleDashboardOverview(
+        role=current_user.role,
+        title='Vista Operador',
+        recommended_actions=[
+            'Registrar movimientos y devoluciones a tiempo.',
+            'Controlar equipos con bajo stock.',
+            'Emitir comprobantes de alquiler cuando aplique.',
+        ],
+    )
+
+
 @router.get('/insights', response_model=DashboardInsights)
-def get_dashboard_insights(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def get_dashboard_insights(db: Session = Depends(get_db), _: User = Depends(require_permission('dashboard.view'))):
     today = date.today()
     cutoff = datetime.now(timezone.utc) - timedelta(days=30)
     due_soon_limit = today + timedelta(days=3)

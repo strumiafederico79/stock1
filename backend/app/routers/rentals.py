@@ -13,6 +13,7 @@ from app.dependencies import get_current_user
 from app.models import ControlType, Item, ItemStatus, Movement, MovementType, Rental, RentalItem, RentalStatus, User, UserRole
 from app.schemas import RentalCreate, RentalItemAdd, RentalRead, RentalReturn
 from app.services.audit import log_audit_event
+from app.services.settings import get_receipt_config
 
 router = APIRouter(prefix='/rentals', tags=['rentals'])
 
@@ -38,16 +39,22 @@ def _apply_item_status_from_available(item: Item) -> None:
         item.status = ItemStatus.RESERVED
 
 
-def _generate_rental_receipt_pdf(rental: Rental) -> bytes:
+def _generate_rental_receipt_pdf(rental: Rental, branding) -> bytes:
     stream = BytesIO()
     pdf = canvas.Canvas(stream, pagesize=letter)
     _, height = letter
     y = height - 40
 
     pdf.setFont('Helvetica-Bold', 14)
-    pdf.drawString(40, y, f'Comprobante de alquiler #{rental.id}')
+    pdf.drawString(40, y, branding.business_name)
     y -= 20
     pdf.setFont('Helvetica', 10)
+    pdf.drawString(40, y, f'Formato fiscal: {branding.business_tax_id}')
+    y -= 14
+    pdf.drawString(40, y, f'Dirección: {branding.business_address}')
+    y -= 14
+    pdf.drawString(40, y, f'Comprobante de alquiler #{rental.id}')
+    y -= 14
     pdf.drawString(40, y, f'Cliente: {rental.client_name}')
     y -= 14
     pdf.drawString(40, y, f'Evento: {rental.event_name or "-"}')
@@ -66,7 +73,7 @@ def _generate_rental_receipt_pdf(rental: Rental) -> bytes:
         unit_price = float(rental_item.unit_price or 0)
         line_total = unit_price * rental_item.quantity
         total += line_total
-        line = f'{rental_item.item.code} - {rental_item.item.name} | Cant: {rental_item.quantity} | P.Unit: ${unit_price:.2f} | Subtotal: ${line_total:.2f}'
+        line = f'{rental_item.item.code} - {rental_item.item.name} | Cant: {rental_item.quantity} | P.Unit: {branding.currency_symbol}{unit_price:.2f} | Subtotal: {branding.currency_symbol}{line_total:.2f}'
         if y < 45:
             pdf.showPage()
             pdf.setFont('Helvetica', 9)
@@ -76,7 +83,10 @@ def _generate_rental_receipt_pdf(rental: Rental) -> bytes:
 
     y -= 8
     pdf.setFont('Helvetica-Bold', 11)
-    pdf.drawString(40, y, f'Total alquiler: ${total:.2f}')
+    pdf.drawString(40, y, f'Total alquiler: {branding.currency_symbol}{total:.2f}')
+    y -= 16
+    pdf.setFont('Helvetica', 9)
+    pdf.drawString(40, y, branding.footer_note[:120])
     pdf.save()
     return stream.getvalue()
 
@@ -228,7 +238,8 @@ def return_rental_item(rental_id: int, rental_item_id: int, payload: RentalRetur
 @router.get('/{rental_id}/receipt.pdf')
 def get_rental_receipt(rental_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     rental = _get_rental_or_404(db, rental_id)
-    pdf_bytes = _generate_rental_receipt_pdf(rental)
+    branding = get_receipt_config(db)
+    pdf_bytes = _generate_rental_receipt_pdf(rental, branding)
     return Response(
         content=pdf_bytes,
         media_type='application/pdf',

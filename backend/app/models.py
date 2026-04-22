@@ -201,3 +201,27 @@ class AuditLog(Base):
     user_full_name: Mapped[str] = mapped_column(String(120), nullable=False)
     details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class SystemSetting(Base):
+    __tablename__ = 'system_settings'
+
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    value_json: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class ScheduledReport(Base):
+    __tablename__ = 'scheduled_reports'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    report_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    report_format: Mapped[str] = mapped_column(String(10), nullable=False, default='csv')
+    interval_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=1440)
+    recipients: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_status: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

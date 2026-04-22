@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import require_permission
 from app.models import Item, Rental, RentalStatus, User
 from app.schemas import SmartAlert, SmartAlertsResponse
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix='/alerts', tags=['alerts'])
 
 
 @router.get('/smart', response_model=SmartAlertsResponse)
-def get_smart_alerts(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def get_smart_alerts(db: Session = Depends(get_db), _: User = Depends(require_permission('alerts.read'))):
     alerts: list[SmartAlert] = []
     today = date.today()
     due_soon = today + timedelta(days=3)

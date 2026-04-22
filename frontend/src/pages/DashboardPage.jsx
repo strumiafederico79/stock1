@@ -8,14 +8,16 @@ import StatCard from '../components/StatCard'
 export default function DashboardPage() {
   const [summary, setSummary] = useState(null)
   const [insights, setInsights] = useState(null)
+  const [roleOverview, setRoleOverview] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([api.getDashboard(), api.getDashboardInsights()])
-      .then(([summaryData, insightsData]) => {
+    Promise.all([api.getDashboard(), api.getDashboardInsights(), api.getRoleOverview()])
+      .then(([summaryData, insightsData, roleData]) => {
         setSummary(summaryData)
         setInsights(insightsData)
+        setRoleOverview(roleData)
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
@@ -33,6 +35,14 @@ export default function DashboardPage() {
 
       {summary && insights ? (
         <>
+          {roleOverview ? (
+            <div className="card">
+              <h3>{roleOverview.title}</h3>
+              <ul>
+                {roleOverview.recommended_actions.map((action) => <li key={action}>{action}</li>)}
+              </ul>
+            </div>
+          ) : null}
           <div className="grid stats-grid">
             <StatCard title="Ítems cargados" value={summary.total_items} hint="Registros únicos" />
             <StatCard title="Unidades disponibles" value={summary.total_available_units} hint="Listas para uso inmediato" />

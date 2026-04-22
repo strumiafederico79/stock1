@@ -331,3 +331,49 @@ class MaintenanceOverview(BaseModel):
     preventive_candidates: int
     predictive_candidates: int
     items: list[MaintenanceItem]
+
+
+class ReceiptBrandingConfig(BaseModel):
+    business_name: str = 'PGR STOCK CONTROL'
+    business_tax_id: str = 'CUIT 00-00000000-0'
+    business_address: str = 'Sin dirección configurada'
+    footer_note: str = 'Gracias por su alquiler.'
+    currency_symbol: str = '$'
+
+
+class ScheduledReportCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    report_type: str = Field(pattern='^(inventory|rentals)$')
+    report_format: str = Field(default='csv', pattern='^(csv|excel|pdf)$')
+    interval_minutes: int = Field(default=1440, ge=5, le=10080)
+    recipients: Optional[str] = None
+    is_active: bool = True
+
+
+class ScheduledReportUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=2, max_length=120)
+    report_format: Optional[str] = Field(default=None, pattern='^(csv|excel|pdf)$')
+    interval_minutes: Optional[int] = Field(default=None, ge=5, le=10080)
+    recipients: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class ScheduledReportRead(BaseModel):
+    id: int
+    name: str
+    report_type: str
+    report_format: str
+    interval_minutes: int
+    recipients: Optional[str]
+    is_active: bool
+    next_run_at: Optional[datetime] = None
+    last_run_at: Optional[datetime] = None
+    last_status: Optional[str] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RoleDashboardOverview(BaseModel):
+    role: UserRole
+    title: str
+    recommended_actions: list[str]

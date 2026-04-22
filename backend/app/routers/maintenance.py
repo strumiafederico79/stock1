@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import require_permission
 from app.models import Area, Item, ItemStatus, Movement, MovementType, User
 from app.schemas import MaintenanceItem, MaintenanceOverview
 
@@ -16,7 +16,7 @@ router = APIRouter(prefix='/maintenance', tags=['maintenance'])
 def get_maintenance_overview(
     preventive_days: int = Query(default=45, ge=1, le=365),
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission('maintenance.read')),
 ):
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=30)

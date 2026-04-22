@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import require_permission
 from app.models import User
 from app.schemas import UserCreate, UserRead, UserUpdate
 from app.security import hash_password
@@ -14,12 +14,12 @@ router = APIRouter(prefix='/users', tags=['users'])
 
 
 @router.get('', response_model=list[UserRead])
-def list_users(_: User = Depends(require_admin), db: Session = Depends(get_db)):
+def list_users(_: User = Depends(require_permission('users.manage')), db: Session = Depends(get_db)):
     return db.execute(select(User).order_by(User.created_at.desc())).scalars().all()
 
 
 @router.post('', response_model=UserRead, status_code=status.HTTP_201_CREATED)
-def create_user(payload: UserCreate, current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
+def create_user(payload: UserCreate, current_user: User = Depends(require_permission('users.manage')), db: Session = Depends(get_db)):
     user = User(
         username=payload.username.strip(),
         full_name=payload.full_name.strip(),
@@ -56,7 +56,7 @@ def create_user(payload: UserCreate, current_user: User = Depends(require_admin)
 
 
 @router.put('/{user_id}', response_model=UserRead)
-def update_user(user_id: int, payload: UserUpdate, current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
+def update_user(user_id: int, payload: UserUpdate, current_user: User = Depends(require_permission('users.manage')), db: Session = Depends(get_db)):
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail='Usuario no encontrado.')

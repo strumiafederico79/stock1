@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import require_permission
 from app.models import AuditLog, User
 from app.schemas import AuditLogRead
 
@@ -17,7 +17,7 @@ def list_audit_logs(
     username: str | None = Query(default=None),
     limit: int = Query(default=200, ge=1, le=1000),
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_permission('audit.read')),
 ):
     stmt = select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit)
     if action:

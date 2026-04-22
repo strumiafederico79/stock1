@@ -10,8 +10,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.dependencies import get_current_user
-from app.models import Item, Rental, RentalItem, User
+from app.dependencies import require_permission
+from app.models import Item, Rental, RentalItem, ScheduledReport, User
+from app.schemas import ScheduledReportCreate, ScheduledReportRead, ScheduledReportUpdate
 
 router = APIRouter(prefix='/reports', tags=['reports'])
 
@@ -78,7 +79,7 @@ def _pdf_response(filename: str, title: str, rows: list[list[str]]) -> Response:
 def export_inventory_report(
     format: str = Query(default='csv', pattern='^(csv|excel|pdf)$'),
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission('reports.export')),
 ):
     items = db.execute(select(Item).options(joinedload(Item.area)).order_by(Item.name.asc())).scalars().all()
     header = ['codigo', 'nombre', 'area', 'estado', 'disponible', 'total', 'minimo', 'barcode']
@@ -97,7 +98,7 @@ def export_inventory_report(
 def export_rentals_report(
     format: str = Query(default='csv', pattern='^(csv|excel|pdf)$'),
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission('reports.export')),
 ):
     rentals = db.execute(
         select(Rental).options(joinedload(Rental.items).joinedload(RentalItem.item)).order_by(Rental.created_at.desc())
@@ -121,3 +122,61 @@ def export_rentals_report(
     if format == 'excel':
         return _excel_response('rentals_report.xlsx', header, rows)
     return _pdf_response('rentals_report.pdf', 'Reporte de rentals', [header, *rows])
+
+
+@router.get('/schedules', response_model=list[ScheduledReportRead])
+def list_scheduled_reports(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission('reports.schedule.manage')),
+):
+    return db.execute(select(ScheduledReport).order_by(ScheduledReport.created_at.desc())).scalars().all()
+
+
+@router.post('/schedules', response_model=ScheduledReportRead)
+def create_schedule(
+    payload: ScheduledReportCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission('reports.schedule.manage')),
+):
+    schedule = ScheduledReport(**payload.model_dump())
+    db.add(schedule)
+    db.commit()
+    db.refresh(schedule)
+    return schedule
+
+
+@router.put('/schedules/{schedule_id}', response_model=ScheduledReportRead)
+def update_schedule(
+    schedule_id: int,
+    payload: ScheduledReportUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission('reports.schedule.manage')),
+):
+    schedule = db.get(ScheduledReport, schedule_id)
+    if not schedule:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail='Programación no encontrada.')
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(schedule, key, value)
+    db.commit()
+    db.refresh(schedule)
+    return schedule
+
+
+@router.post('/schedules/{schedule_id}/run', response_model=ScheduledReportRead)
+def run_schedule_now(
+    schedule_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission('reports.schedule.manage')),
+):
+    schedule = db.get(ScheduledReport, schedule_id)
+    if not schedule:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail='Programación no encontrada.')
+    schedule.last_status = f'RUN_MANUAL ({schedule.report_type}/{schedule.report_format})'
+    schedule.last_run_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(schedule)
+    return schedule
