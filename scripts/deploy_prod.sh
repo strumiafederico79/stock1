@@ -39,7 +39,8 @@ docker compose ps
 
 echo "==> Health backend"
 set +e
-curl -fsS http://localhost:8000/health && echo
+BACKEND_PORT="${BACKEND_PORT:-8080}"
+curl -fsS "http://localhost:${BACKEND_PORT}/health" && echo
 set -e
 
 echo "Deploy finalizado."

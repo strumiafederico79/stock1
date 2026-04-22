@@ -90,7 +90,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip wheel
 pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+fastapi run app/main.py --host 0.0.0.0 --port 8080
 ```
 
 ### Frontend
@@ -108,7 +108,7 @@ Servir `frontend/dist` con Nginx.
 ## 6) Verificaciones post-deploy
 
 ```bash
-curl -f http://localhost:8000/health
+curl -f http://localhost:8080/health
 curl -f http://localhost/api/v1/dashboard/summary -H "Authorization: Bearer <TOKEN>"
 ```
 
