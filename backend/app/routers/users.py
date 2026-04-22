@@ -8,6 +8,7 @@ from app.dependencies import require_admin
 from app.models import User
 from app.schemas import UserCreate, UserRead, UserUpdate
 from app.security import hash_password
+from app.services.audit import log_audit_event
 
 router = APIRouter(prefix='/users', tags=['users'])
 
@@ -18,7 +19,7 @@ def list_users(_: User = Depends(require_admin), db: Session = Depends(get_db)):
 
 
 @router.post('', response_model=UserRead, status_code=status.HTTP_201_CREATED)
-def create_user(payload: UserCreate, _: User = Depends(require_admin), db: Session = Depends(get_db)):
+def create_user(payload: UserCreate, current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
     user = User(
         username=payload.username.strip(),
         full_name=payload.full_name.strip(),
@@ -32,12 +33,21 @@ def create_user(payload: UserCreate, _: User = Depends(require_admin), db: Sessi
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail='El nombre de usuario ya existe.') from exc
+    log_audit_event(
+        db,
+        action='USER_CREATED',
+        entity_type='user',
+        entity_id=str(user.id),
+        current_user=current_user,
+        details={'username': user.username, 'role': user.role.value},
+    )
+    db.commit()
     db.refresh(user)
     return user
 
 
 @router.put('/{user_id}', response_model=UserRead)
-def update_user(user_id: int, payload: UserUpdate, _: User = Depends(require_admin), db: Session = Depends(get_db)):
+def update_user(user_id: int, payload: UserUpdate, current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail='Usuario no encontrado.')
@@ -53,6 +63,15 @@ def update_user(user_id: int, payload: UserUpdate, _: User = Depends(require_adm
         user.password_hash = hash_password(data['password'])
 
     db.add(user)
+    db.commit()
+    log_audit_event(
+        db,
+        action='USER_UPDATED',
+        entity_type='user',
+        entity_id=str(user.id),
+        current_user=current_user,
+        details={'updated_fields': list(data.keys())},
+    )
     db.commit()
     db.refresh(user)
     return user
