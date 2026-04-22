@@ -201,6 +201,7 @@ class RentalItemAdd(BaseModel):
 
 class RentalReturn(BaseModel):
     quantity: int = Field(ge=1)
+    return_status: str = Field(default='OK', pattern='^(OK|DAMAGED|MAINTENANCE_REQUIRED|LOST)$')
     performed_by: Optional[str] = None
     notes: Optional[str] = None
 
@@ -211,6 +212,7 @@ class RentalItemRead(BaseModel):
     quantity: int
     returned_quantity: int
     checkout_status: str
+    return_status: str
     return_notes: Optional[str]
     unit_price: Optional[Decimal]
     item: ItemRead

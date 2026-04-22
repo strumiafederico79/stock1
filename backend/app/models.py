@@ -183,6 +183,7 @@ class RentalItem(Base):
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     returned_quantity: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     checkout_status: Mapped[str] = mapped_column(String(80), default='CHECKED_OUT', nullable=False)
+    return_status: Mapped[str] = mapped_column(String(80), default='PENDING', nullable=False)
     return_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     unit_price: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
 

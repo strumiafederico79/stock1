@@ -31,6 +31,9 @@ def _get_rental_or_404(db: Session, rental_id: int) -> Rental:
 
 
 def _apply_item_status_from_available(item: Item) -> None:
+    if item.quantity_total <= 0:
+        item.status = ItemStatus.OUT_OF_SERVICE
+        return
     if item.quantity_available <= 0:
         item.status = ItemStatus.RENTED
     elif item.quantity_available >= item.quantity_total:
@@ -199,9 +202,19 @@ def return_rental_item(rental_id: int, rental_item_id: int, payload: RentalRetur
         raise HTTPException(status_code=404, detail='Ítem no encontrado.')
 
     rental_item.returned_quantity += payload.quantity
+    rental_item.return_status = payload.return_status
     rental_item.return_notes = payload.notes
-    item.quantity_available = min(item.quantity_total, item.quantity_available + payload.quantity)
-    _apply_item_status_from_available(item)
+    if payload.return_status == 'OK':
+        item.quantity_available = min(item.quantity_total, item.quantity_available + payload.quantity)
+        _apply_item_status_from_available(item)
+    elif payload.return_status == 'DAMAGED':
+        item.status = ItemStatus.DAMAGED
+    elif payload.return_status == 'MAINTENANCE_REQUIRED':
+        item.status = ItemStatus.MAINTENANCE
+    elif payload.return_status == 'LOST':
+        item.quantity_total = max(0, item.quantity_total - payload.quantity)
+        item.quantity_available = min(item.quantity_available, item.quantity_total)
+        _apply_item_status_from_available(item)
 
     movement = Movement(
         item_id=item.id,
