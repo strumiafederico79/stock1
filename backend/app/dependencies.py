@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
@@ -36,3 +38,41 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Permisos insuficientes.')
     return current_user
+
+
+ROLE_PERMISSIONS = {
+    UserRole.ADMIN: {
+        'dashboard.view',
+        'inventory.read',
+        'rental.read',
+        'rental.write',
+        'rental.price.manage',
+        'reports.export',
+        'reports.schedule.manage',
+        'alerts.read',
+        'audit.read',
+        'settings.manage',
+        'maintenance.read',
+        'maintenance.write',
+        'users.manage',
+    },
+    UserRole.OPERATOR: {
+        'dashboard.view',
+        'inventory.read',
+        'rental.read',
+        'rental.write',
+        'reports.export',
+        'alerts.read',
+        'maintenance.read',
+    },
+}
+
+
+def require_permission(permission: str) -> Callable[[User], User]:
+    def _checker(current_user: User = Depends(get_current_user)) -> User:
+        user_permissions = ROLE_PERMISSIONS.get(current_user.role, set())
+        if permission not in user_permissions:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f'Sin permiso: {permission}')
+        return current_user
+
+    return _checker

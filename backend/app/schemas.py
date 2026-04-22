@@ -184,6 +184,9 @@ class RentalBase(BaseModel):
     start_date: date
     due_date: date
     responsible: Optional[str] = Field(default=None, max_length=100)
+    deposit_amount: Decimal = Field(default=Decimal('0'), ge=0)
+    deposit_status: str = Field(default='PENDING', pattern='^(PENDING|HELD|RETURNED|PARTIAL)$')
+    late_fee_per_day: Decimal = Field(default=Decimal('0'), ge=0)
     notes: Optional[str] = None
 
 
@@ -197,12 +200,18 @@ class RentalItemAdd(BaseModel):
     unit_price: Optional[Decimal] = None
     performed_by: Optional[str] = None
     notes: Optional[str] = None
+    checklist: Optional[dict] = None
+    photo_urls: list[str] = []
+    client_signature_name: Optional[str] = Field(default=None, max_length=120)
 
 
 class RentalReturn(BaseModel):
     quantity: int = Field(ge=1)
+    return_status: str = Field(default='OK', pattern='^(OK|DAMAGED|MAINTENANCE_REQUIRED|LOST)$')
     performed_by: Optional[str] = None
     notes: Optional[str] = None
+    checklist: Optional[dict] = None
+    photo_urls: list[str] = []
 
 
 class RentalItemRead(BaseModel):
@@ -211,7 +220,13 @@ class RentalItemRead(BaseModel):
     quantity: int
     returned_quantity: int
     checkout_status: str
+    return_status: str
     return_notes: Optional[str]
+    checkout_checklist_json: Optional[str]
+    return_checklist_json: Optional[str]
+    checkout_photos_json: Optional[str]
+    return_photos_json: Optional[str]
+    client_signature_name: Optional[str]
     unit_price: Optional[Decimal]
     item: ItemRead
     model_config = ConfigDict(from_attributes=True)
@@ -221,9 +236,99 @@ class RentalRead(RentalBase):
     id: int
     return_date: Optional[date]
     status: RentalStatus
+    late_fee_total: Decimal = Decimal('0')
     created_at: datetime
     items: list[RentalItemRead] = []
     model_config = ConfigDict(from_attributes=True)
+
+
+class RentalCalendarEntry(BaseModel):
+    rental_id: int
+    item_id: int
+    item_name: str
+    quantity: int
+    start_date: date
+    due_date: date
+    status: RentalStatus
+
+
+class ItemKitComponentInput(BaseModel):
+    item_id: int
+    quantity: int = Field(default=1, ge=1)
+
+
+class ItemKitCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    description: Optional[str] = None
+    components: list[ItemKitComponentInput]
+
+
+class ItemKitRead(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+    is_active: bool
+    components: list[ItemKitComponentInput]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RentalQuoteCreate(BaseModel):
+    client_name: str = Field(min_length=2, max_length=120)
+    event_name: Optional[str] = Field(default=None, max_length=160)
+    start_date: date
+    due_date: date
+    notes: Optional[str] = None
+    total_amount: Decimal = Field(default=Decimal('0'), ge=0)
+
+
+class RentalQuoteRead(BaseModel):
+    id: int
+    client_name: str
+    event_name: Optional[str]
+    start_date: date
+    due_date: date
+    notes: Optional[str]
+    total_amount: Decimal
+    status: str
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WorkOrderCreate(BaseModel):
+    item_id: int
+    title: str = Field(min_length=3, max_length=160)
+    technician: Optional[str] = Field(default=None, max_length=120)
+    estimated_cost: Optional[Decimal] = None
+    notes: Optional[str] = None
+
+
+class WorkOrderUpdate(BaseModel):
+    status: Optional[str] = Field(default=None, pattern='^(OPEN|IN_PROGRESS|DONE|CANCELLED)$')
+    technician: Optional[str] = Field(default=None, max_length=120)
+    final_cost: Optional[Decimal] = None
+    notes: Optional[str] = None
+
+
+class WorkOrderRead(BaseModel):
+    id: int
+    item_id: int
+    title: str
+    technician: Optional[str]
+    status: str
+    estimated_cost: Optional[Decimal]
+    final_cost: Optional[Decimal]
+    notes: Optional[str]
+    opened_at: datetime
+    closed_at: Optional[datetime]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FinancialDashboard(BaseModel):
+    generated_at: datetime
+    rental_revenue: Decimal
+    collected_late_fees: Decimal
+    estimated_deposits_held: Decimal
+    top_clients: list[dict]
 
 
 class DashboardAreaStat(BaseModel):
@@ -247,3 +352,133 @@ class DashboardSummary(BaseModel):
     maintenance_items: int
     by_area: list[DashboardAreaStat]
     by_status: list[DashboardStatusStat]
+
+
+class DashboardMovementStat(BaseModel):
+    item_id: int
+    item_name: str
+    total_outgoing: int
+
+
+class DashboardRestockSuggestion(BaseModel):
+    item_id: int
+    item_name: str
+    quantity_available: int
+    min_stock: int
+    suggested_restock: int
+    demand_velocity_30d: int
+
+
+class DashboardAlertItem(BaseModel):
+    item_id: int
+    item_name: str
+    quantity_available: int
+    min_stock: int
+    deficit: int
+
+
+class DashboardInsights(BaseModel):
+    generated_at: datetime
+    period_days: int
+    outgoing_movements_30d: int
+    incoming_movements_30d: int
+    unique_items_moved_30d: int
+    overdue_rentals: int
+    due_soon_rentals: int
+    top_outgoing_items: list[DashboardMovementStat]
+    critical_stock_items: list[DashboardAlertItem]
+    restock_suggestions: list[DashboardRestockSuggestion]
+
+
+class AuditLogRead(BaseModel):
+    id: int
+    action: str
+    entity_type: str
+    entity_id: str
+    username: str
+    user_full_name: str
+    details_json: Optional[str] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SmartAlert(BaseModel):
+    type: str
+    severity: str
+    title: str
+    message: str
+    channels: list[str]
+    entity_type: Optional[str] = None
+    entity_id: Optional[str] = None
+
+
+class SmartAlertsResponse(BaseModel):
+    generated_at: datetime
+    total_alerts: int
+    alerts: list[SmartAlert]
+
+
+class MaintenanceItem(BaseModel):
+    item_id: int
+    item_code: str
+    item_name: str
+    area_name: str
+    status: ItemStatus
+    last_maintenance_at: Optional[datetime] = None
+    days_without_maintenance: int
+    risk_score: int
+    recommendation: str
+
+
+class MaintenanceOverview(BaseModel):
+    generated_at: datetime
+    total_items_in_maintenance: int
+    preventive_candidates: int
+    predictive_candidates: int
+    items: list[MaintenanceItem]
+
+
+class ReceiptBrandingConfig(BaseModel):
+    business_name: str = 'PGR STOCK CONTROL'
+    business_tax_id: str = 'CUIT 00-00000000-0'
+    business_address: str = 'Sin dirección configurada'
+    footer_note: str = 'Gracias por su alquiler.'
+    currency_symbol: str = '$'
+
+
+class ScheduledReportCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    report_type: str = Field(pattern='^(inventory|rentals)$')
+    report_format: str = Field(default='csv', pattern='^(csv|excel|pdf)$')
+    interval_minutes: int = Field(default=1440, ge=5, le=10080)
+    recipients: Optional[str] = None
+    is_active: bool = True
+
+
+class ScheduledReportUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=2, max_length=120)
+    report_format: Optional[str] = Field(default=None, pattern='^(csv|excel|pdf)$')
+    interval_minutes: Optional[int] = Field(default=None, ge=5, le=10080)
+    recipients: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class ScheduledReportRead(BaseModel):
+    id: int
+    name: str
+    report_type: str
+    report_format: str
+    interval_minutes: int
+    recipients: Optional[str]
+    is_active: bool
+    next_run_at: Optional[datetime] = None
+    last_run_at: Optional[datetime] = None
+    last_status: Optional[str] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RoleDashboardOverview(BaseModel):
+    role: UserRole
+    title: str
+    recommended_actions: list[str]
