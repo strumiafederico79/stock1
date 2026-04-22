@@ -49,6 +49,7 @@ async function request(path, options = {}) {
     throw error
   }
 
+  if (options.responseType === 'blob') return response.blob()
   const contentType = response.headers.get('content-type') || ''
   if (contentType.includes('application/json')) return response.json()
   return response
@@ -62,6 +63,23 @@ export const api = {
   createUser: (payload) => request('/users', { method: 'POST', body: JSON.stringify(payload) }),
   updateUser: (id, payload) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   getDashboard: () => request('/dashboard/summary'),
+  getDashboardInsights: () => request('/dashboard/insights'),
+  getDashboardFinance: () => request('/dashboard/finance'),
+  getRoleOverview: () => request('/dashboard/role-overview'),
+  getSmartAlerts: () => request('/alerts/smart'),
+  dispatchAlertsPreview: () => request('/alerts/dispatch-preview', { method: 'POST' }),
+  getAuditLogs: () => request('/audit/logs'),
+  getMaintenanceOverview: () => request('/maintenance/overview'),
+  getWorkOrders: () => request('/maintenance/work-orders'),
+  createWorkOrder: (payload) => request('/maintenance/work-orders', { method: 'POST', body: JSON.stringify(payload) }),
+  updateWorkOrder: (id, payload) => request(`/maintenance/work-orders/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  getReceiptBranding: () => request('/settings/receipt-branding'),
+  updateReceiptBranding: (payload) => request('/settings/receipt-branding', { method: 'PUT', body: JSON.stringify(payload) }),
+  exportInventory: (format = 'csv') => request(`/reports/inventory?format=${format}`, { responseType: 'blob' }),
+  exportRentals: (format = 'csv') => request(`/reports/rentals?format=${format}`, { responseType: 'blob' }),
+  getReportSchedules: () => request('/reports/schedules'),
+  createReportSchedule: (payload) => request('/reports/schedules', { method: 'POST', body: JSON.stringify(payload) }),
+  runReportSchedule: (id) => request(`/reports/schedules/${id}/run`, { method: 'POST' }),
   getAreas: () => request('/catalogs/areas'),
   getCategories: (areaId) => request(`/catalogs/categories${areaId ? `?area_id=${areaId}` : ''}`),
   getLocations: (areaId) => request(`/catalogs/locations${areaId ? `?area_id=${areaId}` : ''}`),
@@ -74,6 +92,8 @@ export const api = {
     return request(`/items${suffix}`)
   },
   getItem: (id) => request(`/items/${id}`),
+  getKits: () => request('/items/kits'),
+  createKit: (payload) => request('/items/kits', { method: 'POST', body: JSON.stringify(payload) }),
   createItem: (payload) => request('/items', { method: 'POST', body: JSON.stringify(payload) }),
   updateItem: (id, payload) => request(`/items/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   getItemMovements: (id) => request(`/items/${id}/movements`),
@@ -81,9 +101,14 @@ export const api = {
   createMovement: (payload) => request('/movements', { method: 'POST', body: JSON.stringify(payload) }),
   getMovements: (itemId) => request(`/movements${itemId ? `?item_id=${itemId}` : ''}`),
   getRentals: () => request('/rentals'),
+  getRentalCalendar: () => request('/rentals/meta/calendar'),
+  getQuotes: () => request('/rentals/meta/quotes'),
+  createQuote: (payload) => request('/rentals/meta/quotes', { method: 'POST', body: JSON.stringify(payload) }),
+  convertQuote: (quoteId) => request(`/rentals/meta/quotes/${quoteId}/convert`, { method: 'POST' }),
   createRental: (payload) => request('/rentals', { method: 'POST', body: JSON.stringify(payload) }),
   addRentalItem: (rentalId, payload) => request(`/rentals/${rentalId}/items`, { method: 'POST', body: JSON.stringify(payload) }),
   returnRentalItem: (rentalId, rentalItemId, payload) => request(`/rentals/${rentalId}/items/${rentalItemId}/return`, { method: 'POST', body: JSON.stringify(payload) }),
+  getRentalReceipt: (rentalId) => request(`/rentals/${rentalId}/receipt.pdf`, { responseType: 'blob' }),
 }
 
 export const assetUrl = (path) => {

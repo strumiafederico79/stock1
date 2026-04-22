@@ -2,6 +2,18 @@
 
 App web responsive para control de stock por áreas, pensada para depósito, rental y trazabilidad por código de barras.
 
+## Deploy directo
+
+Para desplegar en producción con todos los comandos (Docker y sin Docker):
+
+- Guía completa: `DEPLOY.md`
+- Script rápido: `scripts/deploy_prod.sh`
+
+Antes de deploy:
+
+- `cp .env.example .env`
+- `cp backend/.env.example backend/.env`
+
 ## Qué incluye esta versión
 
 - Stock dividido por áreas: Sonido, Iluminacion, Pantalla, Layher, Extras y Rental.
@@ -86,8 +98,8 @@ Servicios:
 - Frontend: `http://TU_IP/`
 - Health de la app: `http://TU_IP/health`
 - Docs FastAPI detrás del proxy: `http://TU_IP/docs`
-- Backend directo: `http://TU_IP:8000/health`
-- API directa: `http://TU_IP:8000/api/v1`
+- Backend directo: `http://TU_IP:8080/health`
+- API directa: `http://TU_IP:8080/api/v1`
 
 ### Detener
 
@@ -107,7 +119,7 @@ pip install -r requirements.txt
 cp .env.example .env
 # Si querés SQLite rápido, reemplazá DATABASE_URL por:
 # sqlite:///./stock_control.db
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+fastapi run app/main.py --host 0.0.0.0 --port 8080 --reload
 ```
 
 ### Frontend
@@ -115,7 +127,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```bash
 cd frontend
 npm install
-export VITE_API_URL="http://TU_IP:8000/api/v1"
+export VITE_API_URL="http://TU_IP:8080/api/v1"
 npm run dev -- --host 0.0.0.0 --port 5173
 ```
 

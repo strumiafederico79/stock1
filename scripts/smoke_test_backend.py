@@ -24,16 +24,21 @@ def main() -> None:
         health = client.get('/health')
         assert health.status_code == 200, health.text
 
-        areas = client.get('/api/v1/catalogs/areas')
+        login = client.post('/api/v1/auth/login', json={'username': 'admin', 'password': 'admin1234'})
+        assert login.status_code == 200, login.text
+        token = login.json()['access_token']
+        headers = {'Authorization': f'Bearer {token}'}
+
+        areas = client.get('/api/v1/catalogs/areas', headers=headers)
         assert areas.status_code == 200, areas.text
         areas_data = areas.json()
         assert areas_data, 'No se seedearon áreas'
 
         area_id = areas_data[0]['id']
         second_area_id = areas_data[1]['id']
-        categories = client.get(f'/api/v1/catalogs/categories?area_id={area_id}').json()
-        locations = client.get(f'/api/v1/catalogs/locations?area_id={area_id}').json()
-        second_area_locations = client.get(f'/api/v1/catalogs/locations?area_id={second_area_id}').json()
+        categories = client.get(f'/api/v1/catalogs/categories?area_id={area_id}', headers=headers).json()
+        locations = client.get(f'/api/v1/catalogs/locations?area_id={area_id}', headers=headers).json()
+        second_area_locations = client.get(f'/api/v1/catalogs/locations?area_id={second_area_id}', headers=headers).json()
 
         item = client.post(
             '/api/v1/items',
@@ -45,11 +50,12 @@ def main() -> None:
                 'control_type': 'SERIALIZED',
                 'status': 'AVAILABLE',
             },
+            headers=headers,
         )
         assert item.status_code == 201, item.text
         item_data = item.json()
 
-        barcode = client.get(f"/api/v1/items/{item_data['id']}/barcode.png")
+        barcode = client.get(f"/api/v1/items/{item_data['id']}/barcode.png", headers=headers)
         assert barcode.status_code == 200, barcode.text
 
         movement = client.post(
@@ -60,10 +66,11 @@ def main() -> None:
                 'quantity': 1,
                 'destination_location_id': second_area_locations[0]['id'],
             },
+            headers=headers,
         )
         assert movement.status_code == 201, movement.text
 
-        moved_item = client.get(f"/api/v1/items/{item_data['id']}")
+        moved_item = client.get(f"/api/v1/items/{item_data['id']}", headers=headers)
         assert moved_item.status_code == 200, moved_item.text
         moved = moved_item.json()
         assert moved['area_id'] == second_area_id, moved
@@ -79,6 +86,7 @@ def main() -> None:
                 'origin_area_id': second_area_id,
                 'origin_location_id': second_area_locations[0]['id'],
             },
+            headers=headers,
         )
         assert maintenance.status_code == 201, maintenance.text
 
@@ -90,6 +98,7 @@ def main() -> None:
                 'start_date': '2026-04-13',
                 'due_date': '2026-04-14',
             },
+            headers=headers,
         )
         assert rental.status_code == 201, rental.text
 
