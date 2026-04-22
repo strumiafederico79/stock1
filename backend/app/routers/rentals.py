@@ -1,14 +1,18 @@
 from datetime import date
+from io import BytesIO
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import ControlType, Item, ItemStatus, Movement, MovementType, Rental, RentalItem, RentalStatus, User
+from app.models import ControlType, Item, ItemStatus, Movement, MovementType, Rental, RentalItem, RentalStatus, User, UserRole
 from app.schemas import RentalCreate, RentalItemAdd, RentalRead, RentalReturn
+from app.services.audit import log_audit_event
 
 router = APIRouter(prefix='/rentals', tags=['rentals'])
 
@@ -34,6 +38,49 @@ def _apply_item_status_from_available(item: Item) -> None:
         item.status = ItemStatus.RESERVED
 
 
+def _generate_rental_receipt_pdf(rental: Rental) -> bytes:
+    stream = BytesIO()
+    pdf = canvas.Canvas(stream, pagesize=letter)
+    _, height = letter
+    y = height - 40
+
+    pdf.setFont('Helvetica-Bold', 14)
+    pdf.drawString(40, y, f'Comprobante de alquiler #{rental.id}')
+    y -= 20
+    pdf.setFont('Helvetica', 10)
+    pdf.drawString(40, y, f'Cliente: {rental.client_name}')
+    y -= 14
+    pdf.drawString(40, y, f'Evento: {rental.event_name or "-"}')
+    y -= 14
+    pdf.drawString(40, y, f'Fechas: {rental.start_date} a {rental.due_date}')
+    y -= 14
+    pdf.drawString(40, y, f'Estado: {rental.status.value}')
+    y -= 24
+
+    pdf.setFont('Helvetica-Bold', 10)
+    pdf.drawString(40, y, 'Detalle')
+    y -= 16
+    pdf.setFont('Helvetica', 9)
+    total = 0.0
+    for rental_item in rental.items:
+        unit_price = float(rental_item.unit_price or 0)
+        line_total = unit_price * rental_item.quantity
+        total += line_total
+        line = f'{rental_item.item.code} - {rental_item.item.name} | Cant: {rental_item.quantity} | P.Unit: ${unit_price:.2f} | Subtotal: ${line_total:.2f}'
+        if y < 45:
+            pdf.showPage()
+            pdf.setFont('Helvetica', 9)
+            y = height - 40
+        pdf.drawString(40, y, line[:150])
+        y -= 14
+
+    y -= 8
+    pdf.setFont('Helvetica-Bold', 11)
+    pdf.drawString(40, y, f'Total alquiler: ${total:.2f}')
+    pdf.save()
+    return stream.getvalue()
+
+
 @router.get('', response_model=list[RentalRead])
 def list_rentals(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     stmt = select(Rental).options(
@@ -45,11 +92,20 @@ def list_rentals(db: Session = Depends(get_db), _: User = Depends(get_current_us
 
 
 @router.post('', response_model=RentalRead, status_code=status.HTTP_201_CREATED)
-def create_rental(payload: RentalCreate, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def create_rental(payload: RentalCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if payload.due_date < payload.start_date:
         raise HTTPException(status_code=400, detail='La fecha de devolución no puede ser menor a la de salida.')
     rental = Rental(**payload.model_dump())
     db.add(rental)
+    db.flush()
+    log_audit_event(
+        db,
+        action='RENTAL_CREATED',
+        entity_type='rental',
+        entity_id=str(rental.id),
+        current_user=current_user,
+        details={'client_name': rental.client_name, 'due_date': str(rental.due_date)},
+    )
     db.commit()
     return _get_rental_or_404(db, rental.id)
 
@@ -71,6 +127,8 @@ def add_item_to_rental(rental_id: int, payload: RentalItemAdd, db: Session = Dep
         raise HTTPException(status_code=400, detail='Stock insuficiente para este rental.')
     if item.control_type == ControlType.SERIALIZED and payload.quantity != 1:
         raise HTTPException(status_code=400, detail='Un equipo serializado solo puede salir de a uno.')
+    if payload.unit_price is not None and current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail='Solo administradores pueden definir precios de alquiler.')
 
     rental_item = RentalItem(rental_id=rental.id, item_id=item.id, quantity=payload.quantity, unit_price=payload.unit_price)
     db.add(rental_item)
@@ -92,6 +150,15 @@ def add_item_to_rental(rental_id: int, payload: RentalItemAdd, db: Session = Dep
     db.add(movement)
 
     try:
+        db.flush()
+        log_audit_event(
+            db,
+            action='RENTAL_ITEM_ADDED',
+            entity_type='rental',
+            entity_id=str(rental.id),
+            current_user=current_user,
+            details={'item_id': payload.item_id, 'quantity': payload.quantity},
+        )
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -137,5 +204,24 @@ def return_rental_item(rental_id: int, rental_item_id: int, payload: RentalRetur
     else:
         rental.status = RentalStatus.PARTIAL_RETURN
 
+    log_audit_event(
+        db,
+        action='RENTAL_ITEM_RETURNED',
+        entity_type='rental',
+        entity_id=str(rental.id),
+        current_user=current_user,
+        details={'rental_item_id': rental_item.id, 'quantity': payload.quantity},
+    )
     db.commit()
     return _get_rental_or_404(db, rental_id)
+
+
+@router.get('/{rental_id}/receipt.pdf')
+def get_rental_receipt(rental_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+    rental = _get_rental_or_404(db, rental_id)
+    pdf_bytes = _generate_rental_receipt_pdf(rental)
+    return Response(
+        content=pdf_bytes,
+        media_type='application/pdf',
+        headers={'Content-Disposition': f'attachment; filename="rental_{rental_id}_receipt.pdf"'},
+    )
