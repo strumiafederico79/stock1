@@ -9,6 +9,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import ControlType, Item, ItemStatus, Movement, MovementType, Rental, RentalItem, RentalStatus, User
 from app.schemas import RentalCreate, RentalItemAdd, RentalRead, RentalReturn
+from app.services.audit import log_audit_event
 
 router = APIRouter(prefix='/rentals', tags=['rentals'])
 
@@ -45,11 +46,20 @@ def list_rentals(db: Session = Depends(get_db), _: User = Depends(get_current_us
 
 
 @router.post('', response_model=RentalRead, status_code=status.HTTP_201_CREATED)
-def create_rental(payload: RentalCreate, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def create_rental(payload: RentalCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if payload.due_date < payload.start_date:
         raise HTTPException(status_code=400, detail='La fecha de devolución no puede ser menor a la de salida.')
     rental = Rental(**payload.model_dump())
     db.add(rental)
+    db.commit()
+    log_audit_event(
+        db,
+        action='RENTAL_CREATED',
+        entity_type='rental',
+        entity_id=str(rental.id),
+        current_user=current_user,
+        details={'client_name': rental.client_name, 'due_date': str(rental.due_date)},
+    )
     db.commit()
     return _get_rental_or_404(db, rental.id)
 
@@ -96,6 +106,15 @@ def add_item_to_rental(rental_id: int, payload: RentalItemAdd, db: Session = Dep
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail='El ítem ya fue agregado a este rental.') from exc
+    log_audit_event(
+        db,
+        action='RENTAL_ITEM_ADDED',
+        entity_type='rental',
+        entity_id=str(rental.id),
+        current_user=current_user,
+        details={'item_id': payload.item_id, 'quantity': payload.quantity},
+    )
+    db.commit()
     return _get_rental_or_404(db, rental_id)
 
 
@@ -137,5 +156,14 @@ def return_rental_item(rental_id: int, rental_item_id: int, payload: RentalRetur
     else:
         rental.status = RentalStatus.PARTIAL_RETURN
 
+    db.commit()
+    log_audit_event(
+        db,
+        action='RENTAL_ITEM_RETURNED',
+        entity_type='rental',
+        entity_id=str(rental.id),
+        current_user=current_user,
+        details={'rental_item_id': rental_item.id, 'quantity': payload.quantity},
+    )
     db.commit()
     return _get_rental_or_404(db, rental_id)

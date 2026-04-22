@@ -283,3 +283,51 @@ class DashboardInsights(BaseModel):
     top_outgoing_items: list[DashboardMovementStat]
     critical_stock_items: list[DashboardAlertItem]
     restock_suggestions: list[DashboardRestockSuggestion]
+
+
+class AuditLogRead(BaseModel):
+    id: int
+    action: str
+    entity_type: str
+    entity_id: str
+    username: str
+    user_full_name: str
+    details_json: Optional[str] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SmartAlert(BaseModel):
+    type: str
+    severity: str
+    title: str
+    message: str
+    channels: list[str]
+    entity_type: Optional[str] = None
+    entity_id: Optional[str] = None
+
+
+class SmartAlertsResponse(BaseModel):
+    generated_at: datetime
+    total_alerts: int
+    alerts: list[SmartAlert]
+
+
+class MaintenanceItem(BaseModel):
+    item_id: int
+    item_code: str
+    item_name: str
+    area_name: str
+    status: ItemStatus
+    last_maintenance_at: Optional[datetime] = None
+    days_without_maintenance: int
+    risk_score: int
+    recommendation: str
+
+
+class MaintenanceOverview(BaseModel):
+    generated_at: datetime
+    total_items_in_maintenance: int
+    preventive_candidates: int
+    predictive_candidates: int
+    items: list[MaintenanceItem]

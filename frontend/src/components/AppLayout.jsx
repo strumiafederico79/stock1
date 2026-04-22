@@ -8,6 +8,11 @@ export default function AppLayout({ children }) {
   const links = [
     { to: '/', label: 'Dashboard' },
     { to: '/inventory', label: 'Inventario' },
+    { to: '/reports', label: 'Reportes' },
+    { to: '/purchases', label: 'Compras' },
+    { to: '/maintenance', label: 'Mantenimiento' },
+    { to: '/audit', label: 'Auditoría' },
+    { to: '/settings', label: 'Configuración' },
     ...(isAdmin ? [{ to: '/items/new', label: 'Nuevo equipo' }] : []),
     { to: '/rentals', label: 'Rental' },
     { to: '/scanner', label: 'Escáner' },
