@@ -42,6 +42,15 @@ def create_user(payload: UserCreate, current_user: User = Depends(require_admin)
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail='El nombre de usuario ya existe.') from exc
+    log_audit_event(
+        db,
+        action='USER_CREATED',
+        entity_type='user',
+        entity_id=str(user.id),
+        current_user=current_user,
+        details={'username': user.username, 'role': user.role.value},
+    )
+    db.commit()
     db.refresh(user)
     return user
 

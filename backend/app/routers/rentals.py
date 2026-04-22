@@ -163,6 +163,15 @@ def add_item_to_rental(rental_id: int, payload: RentalItemAdd, db: Session = Dep
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail='El ítem ya fue agregado a este rental.') from exc
+    log_audit_event(
+        db,
+        action='RENTAL_ITEM_ADDED',
+        entity_type='rental',
+        entity_id=str(rental.id),
+        current_user=current_user,
+        details={'item_id': payload.item_id, 'quantity': payload.quantity},
+    )
+    db.commit()
     return _get_rental_or_404(db, rental_id)
 
 
