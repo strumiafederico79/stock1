@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -10,6 +10,14 @@ from app.models import Area, Item, ItemStatus, MaintenanceWorkOrder, Movement, M
 from app.schemas import MaintenanceItem, MaintenanceOverview, WorkOrderCreate, WorkOrderRead, WorkOrderUpdate
 
 router = APIRouter(prefix='/maintenance', tags=['maintenance'])
+
+def _as_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
 
 
 @router.get('/overview', response_model=MaintenanceOverview)
@@ -42,8 +50,9 @@ def get_maintenance_overview(
 
     result: list[MaintenanceItem] = []
     for item, area_name in items:
-        last_maintenance = maint_map.get(item.id)
-        days_without = (now - last_maintenance).days if last_maintenance else (now - item.created_at).days
+        last_maintenance = _as_utc(maint_map.get(item.id))
+        item_created_at = _as_utc(item.created_at)
+        days_without = (now - last_maintenance).days if last_maintenance else (now - item_created_at).days
         usage_30d = demand_map.get(item.id, 0)
         risk_score = min(100, max(0, (usage_30d * 5) + (days_without // 2)))
 
@@ -92,11 +101,13 @@ def list_work_orders(db: Session = Depends(get_db), _: User = Depends(require_pe
 
 @router.post('/work-orders', response_model=WorkOrderRead)
 def create_work_order(payload: WorkOrderCreate, db: Session = Depends(get_db), _: User = Depends(require_permission('maintenance.write'))):
+    item = db.get(Item, payload.item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail='Equipo no encontrado.')
+
     work_order = MaintenanceWorkOrder(**payload.model_dump())
     db.add(work_order)
-    item = db.get(Item, payload.item_id)
-    if item:
-        item.status = ItemStatus.MAINTENANCE
+    item.status = ItemStatus.MAINTENANCE
     db.commit()
     db.refresh(work_order)
     return work_order
@@ -106,7 +117,6 @@ def create_work_order(payload: WorkOrderCreate, db: Session = Depends(get_db), _
 def update_work_order(work_order_id: int, payload: WorkOrderUpdate, db: Session = Depends(get_db), _: User = Depends(require_permission('maintenance.write'))):
     work_order = db.get(MaintenanceWorkOrder, work_order_id)
     if not work_order:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail='Orden no encontrada.')
     for key, value in payload.model_dump(exclude_none=True).items():
         setattr(work_order, key, value)
