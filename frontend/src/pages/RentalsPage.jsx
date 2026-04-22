@@ -257,6 +257,22 @@ export default function RentalsPage() {
     }
   }
 
+  const downloadReceipt = async () => {
+    if (!selectedRentalId) return
+    setError('')
+    try {
+      const blob = await api.getRentalReceipt(selectedRentalId)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `alquiler_${selectedRentalId}_comprobante.pdf`
+      link.click()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   return (
     <div>
       <SectionTitle title="Alquileres" subtitle="Alta de salidas, carga de equipos y devoluciones por cantidad con estado." />

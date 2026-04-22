@@ -131,6 +131,15 @@ def create_item(payload: ItemCreate, db: Session = Depends(get_db), current_user
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail='Código, barcode o QR duplicado.') from exc
+    log_audit_event(
+        db,
+        action='ITEM_CREATED',
+        entity_type='item',
+        entity_id=str(item.id),
+        current_user=current_user,
+        details={'code': item.code, 'name': item.name, 'area_id': item.area_id},
+    )
+    db.commit()
     return _get_item_or_404(db, item.id)
 
 
@@ -215,6 +224,15 @@ def update_item(item_id: int, payload: ItemUpdate, db: Session = Depends(get_db)
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail='No se pudo actualizar el ítem.') from exc
+    log_audit_event(
+        db,
+        action='ITEM_UPDATED',
+        entity_type='item',
+        entity_id=str(item.id),
+        current_user=current_user,
+        details={'updated_fields': list(data.keys())},
+    )
+    db.commit()
     return _get_item_or_404(db, item.id)
 
 
