@@ -12,6 +12,7 @@ from app.database import get_db
 from app.dependencies import get_current_user, require_admin
 from app.models import Area, Category, ControlType, Item, ItemStatus, Location, Movement, User
 from app.schemas import ItemCreate, ItemRead, ItemUpdate, MovementRead
+from app.services.audit import log_audit_event
 from app.services.barcodes import generate_code128_png, generate_qr_png
 
 router = APIRouter(prefix='/items', tags=['items'])
@@ -94,7 +95,7 @@ def list_items(
 
 
 @router.post('', response_model=ItemRead, status_code=status.HTTP_201_CREATED)
-def create_item(payload: ItemCreate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+def create_item(payload: ItemCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     area, _, _ = _validate_relations(db, area_id=payload.area_id, category_id=payload.category_id, location_id=payload.location_id)
     quantity_total, quantity_available = _normalize_item_quantities(
         control_type=payload.control_type,
@@ -117,6 +118,15 @@ def create_item(payload: ItemCreate, db: Session = Depends(get_db), _: User = De
         item.qr_value = f'item:{item.code}'
     db.add(item)
     try:
+        db.flush()
+        log_audit_event(
+            db,
+            action='ITEM_CREATED',
+            entity_type='item',
+            entity_id=str(item.id),
+            current_user=current_user,
+            details={'code': item.code, 'name': item.name, 'area_id': item.area_id},
+        )
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -139,7 +149,7 @@ def get_item(item_id: int, db: Session = Depends(get_db), _: User = Depends(get_
 
 
 @router.put('/{item_id}', response_model=ItemRead)
-def update_item(item_id: int, payload: ItemUpdate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+def update_item(item_id: int, payload: ItemUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     item = _get_item_or_404(db, item_id)
     data = payload.model_dump(exclude_unset=True)
 
@@ -160,6 +170,14 @@ def update_item(item_id: int, payload: ItemUpdate, db: Session = Depends(get_db)
     item.quantity_available = normalized_available
 
     try:
+        log_audit_event(
+            db,
+            action='ITEM_UPDATED',
+            entity_type='item',
+            entity_id=str(item.id),
+            current_user=current_user,
+            details={'updated_fields': list(data.keys())},
+        )
         db.commit()
     except IntegrityError as exc:
         db.rollback()
