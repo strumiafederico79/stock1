@@ -43,6 +43,12 @@ git pull
 
 ## 3) Variables de entorno
 
+Raíz del proyecto (docker compose):
+
+```bash
+cp .env.example .env
+```
+
 Backend:
 
 ```bash

@@ -20,6 +20,11 @@ if [[ ! -f backend/.env ]]; then
   cp backend/.env.example backend/.env
 fi
 
+if [[ ! -f .env ]]; then
+  echo "No existe .env de docker compose. Se creará desde .env.example"
+  cp .env.example .env
+fi
+
 echo "==> Actualizando código"
 git pull --ff-only || true
 
