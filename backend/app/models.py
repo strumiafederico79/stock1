@@ -188,3 +188,16 @@ class RentalItem(Base):
 
     rental: Mapped[Rental] = relationship(back_populates='items')
     item: Mapped[Item] = relationship(back_populates='rental_items')
+
+
+class AuditLog(Base):
+    __tablename__ = 'audit_logs'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    action: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    entity_type: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    entity_id: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    username: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    user_full_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)

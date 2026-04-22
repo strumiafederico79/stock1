@@ -6,6 +6,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import Area, Category, ControlType, Item, ItemStatus, Location, Movement, MovementType, User
 from app.schemas import MovementCreate, MovementRead
+from app.services.audit import log_audit_event
 
 router = APIRouter(prefix='/movements', tags=['movements'])
 
@@ -110,6 +111,15 @@ def create_movement(payload: MovementCreate, db: Session = Depends(get_db), curr
         performed_by_user_id=current_user.id,
     )
     db.add(movement)
+    db.flush()
+    log_audit_event(
+        db,
+        action='MOVEMENT_CREATED',
+        entity_type='movement',
+        entity_id=str(movement.id),
+        current_user=current_user,
+        details={'item_id': movement.item_id, 'movement_type': movement.movement_type.value, 'quantity': movement.quantity},
+    )
     db.commit()
     db.refresh(movement)
     return movement
