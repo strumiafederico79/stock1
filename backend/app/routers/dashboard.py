@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import require_permission
-from app.models import Area, Item, ItemStatus, Movement, MovementType, Rental, RentalStatus, User, UserRole
+from app.models import Area, Item, ItemStatus, Movement, MovementType, Rental, RentalItem, RentalStatus, User, UserRole
 from app.schemas import (
     DashboardAlertItem,
     DashboardAreaStat,
@@ -15,6 +15,7 @@ from app.schemas import (
     DashboardRestockSuggestion,
     DashboardStatusStat,
     DashboardSummary,
+    FinancialDashboard,
     RoleDashboardOverview,
 )
 
@@ -185,4 +186,30 @@ def get_dashboard_insights(db: Session = Depends(get_db), _: User = Depends(requ
             for row in critical_rows
         ],
         restock_suggestions=suggestions,
+    )
+
+
+@router.get('/finance', response_model=FinancialDashboard)
+def get_financial_dashboard(db: Session = Depends(get_db), _: User = Depends(require_permission('dashboard.view'))):
+    rental_rows = db.execute(select(Rental.client_name, Rental.status, Rental.due_date, Rental.late_fee_per_day)).all()
+    revenue = db.scalar(select(func.coalesce(func.sum(RentalItem.quantity * RentalItem.unit_price), 0)).join(Rental, Rental.id == RentalItem.rental_id)) or 0
+    deposits_held = db.scalar(
+        select(func.coalesce(func.sum(Rental.deposit_amount), 0)).where(Rental.deposit_status.in_(['PENDING', 'HELD']))
+    ) or 0
+    late_fees = 0
+    for row in rental_rows:
+        if row[1] in [RentalStatus.ACTIVE, RentalStatus.PARTIAL_RETURN] and row[2] < date.today():
+            late_fees += (date.today() - row[2]).days * float(row[3] or 0)
+    top_clients_rows = db.execute(
+        select(Rental.client_name, func.count(Rental.id).label('qty'))
+        .group_by(Rental.client_name)
+        .order_by(func.count(Rental.id).desc())
+        .limit(5)
+    ).all()
+    return FinancialDashboard(
+        generated_at=datetime.now(timezone.utc),
+        rental_revenue=revenue,
+        collected_late_fees=late_fees,
+        estimated_deposits_held=deposits_held,
+        top_clients=[{'client_name': row[0], 'rentals': row[1]} for row in top_clients_rows],
     )

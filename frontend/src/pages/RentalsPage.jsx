@@ -11,6 +11,9 @@ const initialRental = {
   start_date: '',
   due_date: '',
   responsible: '',
+  deposit_amount: 0,
+  deposit_status: 'PENDING',
+  late_fee_per_day: 0,
   notes: '',
   status: 'DRAFT',
 }
@@ -31,6 +34,7 @@ const initialReturnForm = {
 
 const statusLabels = {
   DRAFT: 'Borrador',
+  RESERVED: 'Reservado',
   ACTIVE: 'Activo',
   PARTIAL_RETURN: 'Devolución parcial',
   CLOSED: 'Cerrado',
@@ -59,6 +63,11 @@ export default function RentalsPage() {
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [searchTerm, setSearchTerm] = useState('')
   const [returnsByItemId, setReturnsByItemId] = useState({})
+  const [calendarRows, setCalendarRows] = useState([])
+  const [quotes, setQuotes] = useState([])
+  const [quoteForm, setQuoteForm] = useState({ client_name: '', event_name: '', start_date: '', due_date: '', notes: '', total_amount: 0 })
+  const [kits, setKits] = useState([])
+  const [kitForm, setKitForm] = useState({ name: '', description: '', item_id: '', quantity: 1 })
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
@@ -66,12 +75,18 @@ export default function RentalsPage() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [rentalsData, itemsData] = await Promise.all([
+      const [rentalsData, itemsData, calendarData, quotesData, kitsData] = await Promise.all([
         api.getRentals(),
         api.getItems({ available_only: true }),
+        api.getRentalCalendar(),
+        api.getQuotes(),
+        api.getKits(),
       ])
       setRentals(rentalsData)
       setItems(itemsData)
+      setCalendarRows(calendarData)
+      setQuotes(quotesData)
+      setKits(kitsData)
       if (!selectedRentalId && rentalsData.length) {
         setSelectedRentalId(String(rentalsData[0].id))
       }
@@ -145,6 +160,9 @@ export default function RentalsPage() {
         unit_price: isAdmin && addItemForm.unit_price !== '' ? Number(addItemForm.unit_price) : null,
         performed_by: addItemForm.performed_by || null,
         notes: addItemForm.notes || null,
+        checklist: { embalaje_ok: true, accesorios_ok: true },
+        photo_urls: [],
+        client_signature_name: addItemForm.performed_by || 'Cliente',
       })
       setAddItemForm(initialAddItem)
       setMessage('Equipo agregado al alquiler.')
@@ -199,6 +217,62 @@ export default function RentalsPage() {
     }
   }
 
+  const createQuote = async (event) => {
+    event.preventDefault()
+    setError('')
+    try {
+      await api.createQuote({ ...quoteForm, total_amount: Number(quoteForm.total_amount) || 0 })
+      setQuoteForm({ client_name: '', event_name: '', start_date: '', due_date: '', notes: '', total_amount: 0 })
+      await loadData()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const convertQuote = async (quoteId) => {
+    setError('')
+    try {
+      const rental = await api.convertQuote(quoteId)
+      setSelectedRentalId(String(rental.id))
+      setMessage(`Cotización #${quoteId} convertida a alquiler #${rental.id}.`)
+      await loadData()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const createKit = async (event) => {
+    event.preventDefault()
+    setError('')
+    try {
+      await api.createKit({
+        name: kitForm.name,
+        description: kitForm.description || null,
+        components: [{ item_id: Number(kitForm.item_id), quantity: Number(kitForm.quantity) }],
+      })
+      setKitForm({ name: '', description: '', item_id: '', quantity: 1 })
+      await loadData()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const downloadReceipt = async () => {
+    if (!selectedRentalId) return
+    setError('')
+    try {
+      const blob = await api.getRentalReceipt(selectedRentalId)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `alquiler_${selectedRentalId}_comprobante.pdf`
+      link.click()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   return (
     <div>
       <SectionTitle title="Alquileres" subtitle="Alta de salidas, carga de equipos y devoluciones por cantidad con estado." />
@@ -229,6 +303,14 @@ export default function RentalsPage() {
           <div className="field">
             <label>Responsable</label>
             <input value={rentalForm.responsible} onChange={(event) => setRentalForm((current) => ({ ...current, responsible: event.target.value }))} />
+          </div>
+          <div className="field">
+            <label>Garantía/depósito</label>
+            <input type="number" min="0" step="0.01" value={rentalForm.deposit_amount} onChange={(event) => setRentalForm((current) => ({ ...current, deposit_amount: event.target.value }))} />
+          </div>
+          <div className="field">
+            <label>Multa por día de atraso</label>
+            <input type="number" min="0" step="0.01" value={rentalForm.late_fee_per_day} onChange={(event) => setRentalForm((current) => ({ ...current, late_fee_per_day: event.target.value }))} />
           </div>
           <div className="field full">
             <label>Notas</label>
@@ -282,6 +364,8 @@ export default function RentalsPage() {
                 <strong>Estado:</strong> {statusLabels[selectedRental.status] || selectedRental.status}
                 {isOverdue(selectedRental) ? ' · VENCIDO' : ''}
               </p>
+              <p><strong>Depósito:</strong> ${Number(selectedRental.deposit_amount || 0).toFixed(2)} ({selectedRental.deposit_status})</p>
+              <p><strong>Multa estimada:</strong> ${Number(selectedRental.late_fee_total || 0).toFixed(2)}</p>
               <button className="button secondary" type="button" onClick={downloadReceipt}>
                 Emitir comprobante PDF
               </button>
@@ -289,6 +373,62 @@ export default function RentalsPage() {
           ) : (
             <p className="muted-text">Creá o seleccioná un alquiler para cargar equipos.</p>
           )}
+        </div>
+      </div>
+
+      <div className="grid two-columns">
+        <div className="card">
+          <h3>Kits de equipos</h3>
+          <form onSubmit={createKit}>
+            <div className="field"><label>Nombre del kit</label><input value={kitForm.name} onChange={(e) => setKitForm((c) => ({ ...c, name: e.target.value }))} required /></div>
+            <div className="field"><label>Descripción</label><input value={kitForm.description} onChange={(e) => setKitForm((c) => ({ ...c, description: e.target.value }))} /></div>
+            <div className="field"><label>Equipo base</label><select value={kitForm.item_id} onChange={(e) => setKitForm((c) => ({ ...c, item_id: e.target.value }))} required><option value="">Seleccionar</option>{items.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select></div>
+            <div className="field"><label>Cantidad</label><input type="number" min="1" value={kitForm.quantity} onChange={(e) => setKitForm((c) => ({ ...c, quantity: e.target.value }))} /></div>
+            <button className="button primary" type="submit">Crear kit</button>
+          </form>
+          <table className="table compact-table">
+            <thead><tr><th>Kit</th><th>Componentes</th></tr></thead>
+            <tbody>{kits.map((kit) => <tr key={kit.id}><td>{kit.name}</td><td>{kit.components.map((c) => `#${c.item_id} x${c.quantity}`).join(', ')}</td></tr>)}</tbody>
+          </table>
+        </div>
+
+        <div className="card">
+          <h3>Cotizaciones</h3>
+          <form onSubmit={createQuote}>
+            <div className="grid two-columns">
+              <div className="field"><label>Cliente</label><input value={quoteForm.client_name} onChange={(e) => setQuoteForm((c) => ({ ...c, client_name: e.target.value }))} required /></div>
+              <div className="field"><label>Evento</label><input value={quoteForm.event_name} onChange={(e) => setQuoteForm((c) => ({ ...c, event_name: e.target.value }))} /></div>
+              <div className="field"><label>Inicio</label><input type="date" value={quoteForm.start_date} onChange={(e) => setQuoteForm((c) => ({ ...c, start_date: e.target.value }))} required /></div>
+              <div className="field"><label>Fin</label><input type="date" value={quoteForm.due_date} onChange={(e) => setQuoteForm((c) => ({ ...c, due_date: e.target.value }))} required /></div>
+              <div className="field"><label>Total cotización</label><input type="number" min="0" step="0.01" value={quoteForm.total_amount} onChange={(e) => setQuoteForm((c) => ({ ...c, total_amount: e.target.value }))} /></div>
+            </div>
+            <button className="button primary" type="submit">Guardar cotización</button>
+          </form>
+          <table className="table compact-table">
+            <thead><tr><th>ID</th><th>Cliente</th><th>Total</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+              {quotes.map((quote) => (
+                <tr key={quote.id}>
+                  <td>#{quote.id}</td><td>{quote.client_name}</td><td>${Number(quote.total_amount || 0).toFixed(2)}</td><td>{quote.status}</td>
+                  <td><button className="button tiny" type="button" disabled={quote.status === 'CONVERTED'} onClick={() => convertQuote(quote.id)}>Convertir</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="card">
+          <h3>Calendario de disponibilidad</h3>
+          <table className="table compact-table">
+            <thead><tr><th>Alquiler</th><th>Equipo</th><th>Cant.</th><th>Desde</th><th>Hasta</th><th>Estado</th></tr></thead>
+            <tbody>
+              {calendarRows.map((row) => (
+                <tr key={`${row.rental_id}-${row.item_id}`}>
+                  <td>#{row.rental_id}</td><td>{row.item_name}</td><td>{row.quantity}</td><td>{row.start_date}</td><td>{row.due_date}</td><td>{statusLabels[row.status] || row.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 

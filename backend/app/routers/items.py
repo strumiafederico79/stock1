@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import get_settings
 from app.database import get_db
 from app.dependencies import get_current_user, require_admin
-from app.models import Area, Category, ControlType, Item, ItemStatus, Location, Movement, User
-from app.schemas import ItemCreate, ItemRead, ItemUpdate, MovementRead
+from app.models import Area, Category, ControlType, Item, ItemKit, ItemKitComponent, ItemStatus, Location, Movement, User
+from app.schemas import ItemCreate, ItemKitCreate, ItemKitRead, ItemRead, ItemUpdate, MovementRead
 from app.services.audit import log_audit_event
 from app.services.barcodes import generate_code128_png, generate_qr_png
 
@@ -150,6 +150,39 @@ def get_item_by_barcode(barcode: str, db: Session = Depends(get_db), _: User = D
     if not item:
         raise HTTPException(status_code=404, detail='Ítem no encontrado para ese barcode.')
     return item
+
+
+@router.get('/kits', response_model=list[ItemKitRead])
+def list_kits(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+    kits = db.execute(select(ItemKit).options(joinedload(ItemKit.components))).scalars().unique().all()
+    return [
+        ItemKitRead(
+            id=kit.id,
+            name=kit.name,
+            description=kit.description,
+            is_active=kit.is_active,
+            components=[{'item_id': component.item_id, 'quantity': component.quantity} for component in kit.components],
+        )
+        for kit in kits
+    ]
+
+
+@router.post('/kits', response_model=ItemKitRead, status_code=status.HTTP_201_CREATED)
+def create_kit(payload: ItemKitCreate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    kit = ItemKit(name=payload.name, description=payload.description, is_active=True)
+    db.add(kit)
+    db.flush()
+    for component in payload.components:
+        db.add(ItemKitComponent(kit_id=kit.id, item_id=component.item_id, quantity=component.quantity))
+    db.commit()
+    db.refresh(kit)
+    return ItemKitRead(
+        id=kit.id,
+        name=kit.name,
+        description=kit.description,
+        is_active=kit.is_active,
+        components=[{'item_id': component.item_id, 'quantity': component.quantity} for component in payload.components],
+    )
 
 
 @router.get('/{item_id}', response_model=ItemRead)

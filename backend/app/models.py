@@ -41,6 +41,7 @@ class MovementType(str, enum.Enum):
 
 class RentalStatus(str, enum.Enum):
     DRAFT = 'DRAFT'
+    RESERVED = 'RESERVED'
     ACTIVE = 'ACTIVE'
     PARTIAL_RETURN = 'PARTIAL_RETURN'
     CLOSED = 'CLOSED'
@@ -166,6 +167,9 @@ class Rental(Base):
     due_date: Mapped[date] = mapped_column(Date, nullable=False)
     return_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     responsible: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    deposit_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
+    deposit_status: Mapped[str] = mapped_column(String(30), default='PENDING', nullable=False)
+    late_fee_per_day: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
     status: Mapped[RentalStatus] = mapped_column(Enum(RentalStatus), default=RentalStatus.DRAFT, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -185,6 +189,11 @@ class RentalItem(Base):
     checkout_status: Mapped[str] = mapped_column(String(80), default='CHECKED_OUT', nullable=False)
     return_status: Mapped[str] = mapped_column(String(80), default='PENDING', nullable=False)
     return_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checkout_checklist_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    return_checklist_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checkout_photos_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    return_photos_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    client_signature_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     unit_price: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
 
     rental: Mapped[Rental] = relationship(back_populates='items')
@@ -226,3 +235,59 @@ class ScheduledReport(Base):
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_status: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ItemKit(Base):
+    __tablename__ = 'item_kits'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False, unique=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    components: Mapped[list['ItemKitComponent']] = relationship(back_populates='kit', cascade='all, delete-orphan')
+
+
+class ItemKitComponent(Base):
+    __tablename__ = 'item_kit_components'
+    __table_args__ = (UniqueConstraint('kit_id', 'item_id', name='uq_kit_item_component'),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    kit_id: Mapped[int] = mapped_column(ForeignKey('item_kits.id', ondelete='CASCADE'), nullable=False)
+    item_id: Mapped[int] = mapped_column(ForeignKey('items.id', ondelete='CASCADE'), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+    kit: Mapped[ItemKit] = relationship(back_populates='components')
+    item: Mapped[Item] = relationship()
+
+
+class RentalQuote(Base):
+    __tablename__ = 'rental_quotes'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    client_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    event_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    due_date: Mapped[date] = mapped_column(Date, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    total_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default='DRAFT', nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MaintenanceWorkOrder(Base):
+    __tablename__ = 'maintenance_work_orders'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey('items.id', ondelete='CASCADE'), nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    technician: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default='OPEN', nullable=False)
+    estimated_cost: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    final_cost: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    item: Mapped[Item] = relationship()

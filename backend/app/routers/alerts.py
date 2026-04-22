@@ -75,3 +75,18 @@ def get_smart_alerts(db: Session = Depends(get_db), _: User = Depends(require_pe
         total_alerts=len(alerts),
         alerts=alerts,
     )
+
+
+@router.post('/dispatch-preview')
+def dispatch_preview(db: Session = Depends(get_db), _: User = Depends(require_permission('alerts.read'))):
+    smart = get_smart_alerts(db)
+    simulated = [
+        {
+            'title': alert.title,
+            'sent_to': ['email:operaciones@empresa.local', 'whatsapp:+5491112345678'],
+            'channels': alert.channels,
+            'status': 'SIMULATED',
+        }
+        for alert in smart.alerts[:20]
+    ]
+    return {'generated_at': datetime.now(timezone.utc), 'dispatched': len(simulated), 'items': simulated}

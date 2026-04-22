@@ -6,16 +6,30 @@ import SectionTitle from '../components/SectionTitle'
 
 export default function PurchasesPage() {
   const [alerts, setAlerts] = useState([])
+  const [dispatchResult, setDispatchResult] = useState(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
     api.getSmartAlerts().then((data) => setAlerts(data.alerts)).catch((err) => setError(err.message))
   }, [])
 
+  const runDispatchPreview = async () => {
+    try {
+      const result = await api.dispatchAlertsPreview()
+      setDispatchResult(result)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   return (
     <div>
       <SectionTitle title="Compras" subtitle="Alertas inteligentes multicanal para priorizar reposiciones." />
       {error ? <AlertBox>{error}</AlertBox> : null}
+      <div className="card">
+        <button className="button primary" type="button" onClick={runDispatchPreview}>Simular envío email/WhatsApp</button>
+        {dispatchResult ? <p className="muted-text">Alertas simuladas: {dispatchResult.dispatched}</p> : null}
+      </div>
       <div className="card">
         <table className="table">
           <thead>

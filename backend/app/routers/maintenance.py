@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import require_permission
-from app.models import Area, Item, ItemStatus, Movement, MovementType, User
-from app.schemas import MaintenanceItem, MaintenanceOverview
+from app.models import Area, Item, ItemStatus, MaintenanceWorkOrder, Movement, MovementType, User
+from app.schemas import MaintenanceItem, MaintenanceOverview, WorkOrderCreate, WorkOrderRead, WorkOrderUpdate
 
 router = APIRouter(prefix='/maintenance', tags=['maintenance'])
 
@@ -83,3 +83,38 @@ def get_maintenance_overview(
         predictive_candidates=predictive_candidates,
         items=sorted(result, key=lambda row: row.risk_score, reverse=True)[:50],
     )
+
+
+@router.get('/work-orders', response_model=list[WorkOrderRead])
+def list_work_orders(db: Session = Depends(get_db), _: User = Depends(require_permission('maintenance.read'))):
+    return db.execute(select(MaintenanceWorkOrder).order_by(MaintenanceWorkOrder.opened_at.desc())).scalars().all()
+
+
+@router.post('/work-orders', response_model=WorkOrderRead)
+def create_work_order(payload: WorkOrderCreate, db: Session = Depends(get_db), _: User = Depends(require_permission('maintenance.write'))):
+    work_order = MaintenanceWorkOrder(**payload.model_dump())
+    db.add(work_order)
+    item = db.get(Item, payload.item_id)
+    if item:
+        item.status = ItemStatus.MAINTENANCE
+    db.commit()
+    db.refresh(work_order)
+    return work_order
+
+
+@router.put('/work-orders/{work_order_id}', response_model=WorkOrderRead)
+def update_work_order(work_order_id: int, payload: WorkOrderUpdate, db: Session = Depends(get_db), _: User = Depends(require_permission('maintenance.write'))):
+    work_order = db.get(MaintenanceWorkOrder, work_order_id)
+    if not work_order:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail='Orden no encontrada.')
+    for key, value in payload.model_dump(exclude_none=True).items():
+        setattr(work_order, key, value)
+    if work_order.status == 'DONE':
+        work_order.closed_at = datetime.now(timezone.utc)
+        item = db.get(Item, work_order.item_id)
+        if item and item.status == ItemStatus.MAINTENANCE:
+            item.status = ItemStatus.AVAILABLE
+    db.commit()
+    db.refresh(work_order)
+    return work_order
