@@ -3,8 +3,8 @@
 ## Requisitos
 - Node 18+
 - npm 9+
-- Cuenta de Expo (gratuita)
-- EAS CLI (`npm i -g eas-cli` o usando `npx eas`)
+- Para build local Android: JDK 17 + Android SDK (`ANDROID_HOME` o `ANDROID_SDK_ROOT`)
+- Opcional (build cloud): cuenta de Expo (gratuita) + EAS CLI
 
 ## Instalación
 ```bash
@@ -17,8 +17,20 @@ npm install
 npm run start
 ```
 
-## Generar APK (Android)
-La configuración para generar APK quedó lista en `eas.json`.
+## Opción 1: Generar APK local (sin cuenta Expo)
+Este modo construye un APK release en tu máquina con Gradle.
+
+```bash
+npm run build:apk:local
+```
+
+Ruta esperada del archivo:
+```bash
+appmovil/android/app/build/outputs/apk/release/app-release.apk
+```
+
+## Opción 2: Generar APK en la nube (EAS)
+La configuración para generar APK también está lista en `eas.json`.
 
 1. Inicia sesión en Expo:
    ```bash
