@@ -3,24 +3,46 @@
 ## Requisitos
 - Node 18+
 - npm 9+
-- Expo CLI (opcional, se usa con `npx expo`)
+- Cuenta de Expo (gratuita)
+- EAS CLI (`npm i -g eas-cli` o usando `npx eas`)
 
 ## Instalación
 ```bash
 cd appmovil
 npm install
-cp .env.example .env
 ```
 
-Editar `.env` con tu backend:
-```env
-EXPO_PUBLIC_API_URL=http://3.88.51.188/api/v1
-```
-
-## Ejecutar
+## Ejecutar en desarrollo
 ```bash
 npm run start
 ```
+
+## Generar APK (Android)
+La configuración para generar APK quedó lista en `eas.json`.
+
+1. Inicia sesión en Expo:
+   ```bash
+   npx eas login
+   ```
+2. Configura el proyecto (solo la primera vez):
+   ```bash
+   npx eas build:configure
+   ```
+3. Lanza el build APK:
+   ```bash
+   npm run build:apk
+   ```
+4. Al terminar, Expo te entrega una URL para descargar el archivo `.apk`.
+
+## Generar AAB (Play Store)
+```bash
+npm run build:aab
+```
+
+## Variables de entorno
+La app consume la URL del backend desde `app.json` en `expo.extra.apiBaseUrl`.
+
+Si quieres manejarlo por entorno, puedes migrar a `app.config.js` y usar variables `EXPO_PUBLIC_*`.
 
 ## Pantallas incluidas (MVP)
 - Login
