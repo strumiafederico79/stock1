@@ -1,5 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 
+import { colors } from '../components/UI'
 import DashboardScreen from '../screens/DashboardScreen'
 import InventoryScreen from '../screens/InventoryScreen'
 import MaintenanceScreen from '../screens/MaintenanceScreen'
@@ -11,7 +12,16 @@ const Tab = createBottomTabNavigator()
 
 export default function MainTabs() {
   return (
-    <Tab.Navigator screenOptions={{ headerTitleAlign: 'center' }}>
+    <Tab.Navigator
+      screenOptions={{
+        headerTitleAlign: 'center',
+        headerStyle: { backgroundColor: colors.surface },
+        headerTintColor: colors.text,
+        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.muted,
+      }}
+    >
       <Tab.Screen name="Inicio" component={DashboardScreen} />
       <Tab.Screen name="Inventario" component={InventoryScreen} />
       <Tab.Screen name="Alquileres" component={RentalsScreen} />

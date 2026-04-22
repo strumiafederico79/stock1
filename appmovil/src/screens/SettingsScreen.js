@@ -1,6 +1,6 @@
-import { Pressable, Text } from 'react-native'
+import { Text } from 'react-native'
 
-import { Card, ScreenContainer } from '../components/UI'
+import { AppButton, Card, PGRLogo, ScreenContainer, colors } from '../components/UI'
 import { useAuth } from '../context/AuthContext'
 
 export default function SettingsScreen() {
@@ -8,16 +8,17 @@ export default function SettingsScreen() {
 
   return (
     <ScreenContainer>
+      <PGRLogo subtitle="Gestión segura" />
+
       <Card title="Usuario">
-        <Text>{user?.full_name}</Text>
-        <Text>{user?.username}</Text>
-        <Text>Rol: {user?.role}</Text>
+        <Text style={{ color: colors.text }}>{user?.full_name || 'Sin nombre'}</Text>
+        <Text style={{ color: colors.muted }}>{user?.username}</Text>
+        <Text style={{ color: colors.muted }}>Rol: {user?.role}</Text>
       </Card>
 
       <Card title="Sesión">
-        <Pressable style={{ backgroundColor: '#dc2626', padding: 10, borderRadius: 8 }} onPress={logout}>
-          <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '700' }}>Cerrar sesión</Text>
-        </Pressable>
+        <Text style={{ color: colors.muted, marginBottom: 8 }}>La sesión se cierra automáticamente tras 12 horas de inactividad.</Text>
+        <AppButton variant="danger" label="Cerrar sesión" onPress={logout} />
       </Card>
     </ScreenContainer>
   )

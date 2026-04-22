@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { FlatList, Pressable, Text, TextInput } from 'react-native'
+import { FlatList, Text } from 'react-native'
 
-import { Card, ScreenContainer } from '../components/UI'
+import { AppButton, AppInput, Card, ScreenContainer, colors } from '../components/UI'
 import { api } from '../services/api'
 
 export default function MaintenanceScreen() {
@@ -26,6 +26,11 @@ export default function MaintenanceScreen() {
   }, [])
 
   const createWO = async () => {
+    if (!form.item_id || !form.title) {
+      setError('ID de ítem y título son obligatorios.')
+      return
+    }
+
     try {
       await api.createWorkOrder({ item_id: Number(form.item_id), title: form.title, technician: form.technician || null })
       setForm({ item_id: '', title: '', technician: '' })
@@ -37,20 +42,20 @@ export default function MaintenanceScreen() {
 
   return (
     <ScreenContainer>
-      {error ? <Card><Text>{error}</Text></Card> : null}
+      {error ? <Card><Text style={{ color: '#fecaca' }}>{error}</Text></Card> : null}
       {overview ? (
         <Card title="Resumen mantenimiento">
-          <Text>En mantenimiento: {overview.total_items_in_maintenance}</Text>
-          <Text>Preventivo: {overview.preventive_candidates}</Text>
-          <Text>Predictivo: {overview.predictive_candidates}</Text>
+          <Text style={{ color: colors.text }}>En mantenimiento: {overview.total_items_in_maintenance}</Text>
+          <Text style={{ color: colors.muted }}>Preventivo: {overview.preventive_candidates}</Text>
+          <Text style={{ color: colors.muted }}>Predictivo: {overview.predictive_candidates}</Text>
         </Card>
       ) : null}
 
       <Card title="Nueva orden de trabajo">
-        <TextInput placeholder="ID ítem" value={form.item_id} onChangeText={(v) => setForm((c) => ({ ...c, item_id: v }))} style={styles.input} keyboardType="numeric" />
-        <TextInput placeholder="Título" value={form.title} onChangeText={(v) => setForm((c) => ({ ...c, title: v }))} style={styles.input} />
-        <TextInput placeholder="Técnico" value={form.technician} onChangeText={(v) => setForm((c) => ({ ...c, technician: v }))} style={styles.input} />
-        <Pressable style={styles.button} onPress={createWO}><Text style={styles.buttonLabel}>Crear OT</Text></Pressable>
+        <AppInput placeholder="ID ítem" value={form.item_id} onChangeText={(v) => setForm((c) => ({ ...c, item_id: v }))} keyboardType="numeric" />
+        <AppInput placeholder="Título" value={form.title} onChangeText={(v) => setForm((c) => ({ ...c, title: v }))} />
+        <AppInput placeholder="Técnico" value={form.technician} onChangeText={(v) => setForm((c) => ({ ...c, technician: v }))} />
+        <AppButton label="Crear OT" onPress={createWO} />
       </Card>
 
       <FlatList
@@ -58,18 +63,12 @@ export default function MaintenanceScreen() {
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
           <Card>
-            <Text>#{item.id} · Ítem {item.item_id}</Text>
-            <Text>{item.title}</Text>
-            <Text>{item.status} · {item.technician || 'Sin técnico'}</Text>
+            <Text style={{ color: colors.text }}>#{item.id} · Ítem {item.item_id}</Text>
+            <Text style={{ color: colors.muted }}>{item.title}</Text>
+            <Text style={{ color: colors.muted }}>{item.status} · {item.technician || 'Sin técnico'}</Text>
           </Card>
         )}
       />
     </ScreenContainer>
   )
-}
-
-const styles = {
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, marginBottom: 8 },
-  button: { backgroundColor: '#2563eb', padding: 10, borderRadius: 8, alignItems: 'center' },
-  buttonLabel: { color: '#fff', fontWeight: '700' },
 }
