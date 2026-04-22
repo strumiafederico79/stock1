@@ -1,8 +1,8 @@
 import { BarCodeScanner } from 'expo-barcode-scanner'
 import { useEffect, useState } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 
-import { Card, ScreenContainer } from '../components/UI'
+import { AppButton, Card, ScreenContainer, colors } from '../components/UI'
 import { api } from '../services/api'
 
 export default function ScannerScreen() {
@@ -27,21 +27,17 @@ export default function ScannerScreen() {
     }
   }
 
-  if (permission === null) return <ScreenContainer><Card><Text>Solicitando permiso...</Text></Card></ScreenContainer>
-  if (permission === false) return <ScreenContainer><Card><Text>Sin acceso a cámara.</Text></Card></ScreenContainer>
+  if (permission === null) return <ScreenContainer><Card><Text style={{ color: colors.muted }}>Solicitando permiso...</Text></Card></ScreenContainer>
+  if (permission === false) return <ScreenContainer><Card><Text style={{ color: '#fecaca' }}>Sin acceso a cámara.</Text></Card></ScreenContainer>
 
   return (
     <ScreenContainer>
-      <View style={{ height: 320, borderRadius: 12, overflow: 'hidden' }}>
+      <View style={{ height: 320, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }}>
         <BarCodeScanner onBarCodeScanned={scanned ? undefined : onScan} style={{ flex: 1 }} />
       </View>
       <Card>
-        <Text>{result || 'Escaneá un código para buscar ítem.'}</Text>
-        {scanned ? (
-          <Pressable style={{ backgroundColor: '#2563eb', padding: 10, borderRadius: 8, marginTop: 8 }} onPress={() => setScanned(false)}>
-            <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '700' }}>Escanear nuevamente</Text>
-          </Pressable>
-        ) : null}
+        <Text style={{ color: colors.text }}>{result || 'Escaneá un código para buscar ítem.'}</Text>
+        {scanned ? <AppButton label="Escanear nuevamente" onPress={() => setScanned(false)} /> : null}
       </Card>
     </ScreenContainer>
   )

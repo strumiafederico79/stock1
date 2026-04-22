@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FlatList, Pressable, Text, TextInput, View } from 'react-native'
+import { FlatList, Text, View } from 'react-native'
 
-import { Card, ScreenContainer } from '../components/UI'
+import { AppButton, AppInput, Card, ScreenContainer, colors } from '../components/UI'
 import { api } from '../services/api'
+import { sanitizePayload } from '../utils/security'
 
 export default function RentalsScreen() {
   const [rentals, setRentals] = useState([])
@@ -43,8 +44,13 @@ export default function RentalsScreen() {
   const selectedRental = useMemo(() => rentals.find((r) => r.id === selectedRentalId), [rentals, selectedRentalId])
 
   const createRental = async () => {
+    if (!newRental.client_name || !newRental.start_date || !newRental.due_date) {
+      setError('Cliente, fecha inicio y fecha fin son obligatorios.')
+      return
+    }
+
     try {
-      await api.createRental(newRental)
+      await api.createRental(sanitizePayload(newRental))
       setNewRental({
         client_name: '', event_name: '', start_date: '', due_date: '', responsible: '', deposit_amount: 0, late_fee_per_day: 0, notes: '', status: 'DRAFT',
       })
@@ -56,6 +62,11 @@ export default function RentalsScreen() {
 
   const addRentalItem = async () => {
     if (!selectedRentalId) return
+    if (!addItem.item_id || Number(addItem.quantity) <= 0) {
+      setError('Debes indicar ID de ítem y cantidad válida.')
+      return
+    }
+
     try {
       await api.addRentalItem(selectedRentalId, {
         item_id: Number(addItem.item_id),
@@ -73,41 +84,41 @@ export default function RentalsScreen() {
 
   return (
     <ScreenContainer>
-      {error ? <Card><Text>{error}</Text></Card> : null}
+      {error ? <Card><Text style={{ color: '#fecaca' }}>{error}</Text></Card> : null}
       <FlatList
         ListHeaderComponent={(
           <>
             <Card title="Nuevo alquiler (móvil)">
-              <TextInput placeholder="Cliente" value={newRental.client_name} onChangeText={(v) => setNewRental((c) => ({ ...c, client_name: v }))} style={styles.input} />
-              <TextInput placeholder="Evento" value={newRental.event_name} onChangeText={(v) => setNewRental((c) => ({ ...c, event_name: v }))} style={styles.input} />
-              <TextInput placeholder="Fecha inicio YYYY-MM-DD" value={newRental.start_date} onChangeText={(v) => setNewRental((c) => ({ ...c, start_date: v }))} style={styles.input} />
-              <TextInput placeholder="Fecha fin YYYY-MM-DD" value={newRental.due_date} onChangeText={(v) => setNewRental((c) => ({ ...c, due_date: v }))} style={styles.input} />
-              <Pressable style={styles.button} onPress={createRental}><Text style={styles.buttonLabel}>Crear alquiler</Text></Pressable>
+              <AppInput placeholder="Cliente" value={newRental.client_name} onChangeText={(v) => setNewRental((c) => ({ ...c, client_name: v }))} />
+              <AppInput placeholder="Evento" value={newRental.event_name} onChangeText={(v) => setNewRental((c) => ({ ...c, event_name: v }))} />
+              <AppInput placeholder="Fecha inicio YYYY-MM-DD" value={newRental.start_date} onChangeText={(v) => setNewRental((c) => ({ ...c, start_date: v }))} />
+              <AppInput placeholder="Fecha fin YYYY-MM-DD" value={newRental.due_date} onChangeText={(v) => setNewRental((c) => ({ ...c, due_date: v }))} />
+              <AppButton label="Crear alquiler" onPress={createRental} />
             </Card>
 
             <Card title="Seleccionar alquiler">
-              <View style={{ gap: 6 }}>
+              <View style={{ gap: 8 }}>
                 {rentals.slice(0, 10).map((r) => (
-                  <Pressable key={r.id} onPress={() => setSelectedRentalId(r.id)}>
-                    <Text style={{ fontWeight: selectedRentalId === r.id ? '700' : '400' }}>#{r.id} · {r.client_name} · {r.status}</Text>
-                  </Pressable>
+                  <Text key={r.id} onPress={() => setSelectedRentalId(r.id)} style={{ color: selectedRentalId === r.id ? colors.primary : colors.muted, fontWeight: '700' }}>
+                    #{r.id} · {r.client_name} · {r.status}
+                  </Text>
                 ))}
               </View>
             </Card>
 
             {selectedRental ? (
               <Card title={`Alquiler #${selectedRental.id}`}>
-                <Text>Cliente: {selectedRental.client_name}</Text>
-                <Text>Estado: {selectedRental.status}</Text>
-                <Text>Depósito: ${Number(selectedRental.deposit_amount || 0).toFixed(2)}</Text>
+                <Text style={{ color: colors.text }}>Cliente: {selectedRental.client_name}</Text>
+                <Text style={{ color: colors.muted }}>Estado: {selectedRental.status}</Text>
+                <Text style={{ color: colors.muted }}>Depósito: ${Number(selectedRental.deposit_amount || 0).toFixed(2)}</Text>
               </Card>
             ) : null}
 
             <Card title="Agregar ítem al alquiler">
-              <TextInput placeholder="ID ítem" value={addItem.item_id} onChangeText={(v) => setAddItem((c) => ({ ...c, item_id: v }))} style={styles.input} keyboardType="numeric" />
-              <TextInput placeholder="Cantidad" value={String(addItem.quantity)} onChangeText={(v) => setAddItem((c) => ({ ...c, quantity: v }))} style={styles.input} keyboardType="numeric" />
-              <Text style={{ fontSize: 12, color: '#555' }}>IDs disponibles: {items.slice(0, 5).map((item) => item.id).join(', ')}</Text>
-              <Pressable style={styles.button} onPress={addRentalItem}><Text style={styles.buttonLabel}>Agregar</Text></Pressable>
+              <AppInput placeholder="ID ítem" value={addItem.item_id} onChangeText={(v) => setAddItem((c) => ({ ...c, item_id: v }))} keyboardType="numeric" />
+              <AppInput placeholder="Cantidad" value={String(addItem.quantity)} onChangeText={(v) => setAddItem((c) => ({ ...c, quantity: v }))} keyboardType="numeric" />
+              <Text style={{ fontSize: 12, color: colors.muted }}>IDs disponibles: {items.slice(0, 5).map((item) => item.id).join(', ') || 'N/D'}</Text>
+              <AppButton label="Agregar" onPress={addRentalItem} />
             </Card>
           </>
         )}
@@ -115,18 +126,12 @@ export default function RentalsScreen() {
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
           <Card>
-            <Text>{item.item?.code} · {item.item?.name}</Text>
-            <Text>Cant.: {item.quantity} | Devuelto: {item.returned_quantity}</Text>
-            <Text>Estado devolución: {item.return_status}</Text>
+            <Text style={{ color: colors.text }}>{item.item?.code} · {item.item?.name}</Text>
+            <Text style={{ color: colors.muted }}>Cant.: {item.quantity} | Devuelto: {item.returned_quantity}</Text>
+            <Text style={{ color: colors.muted }}>Estado devolución: {item.return_status}</Text>
           </Card>
         )}
       />
     </ScreenContainer>
   )
-}
-
-const styles = {
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, marginBottom: 8 },
-  button: { backgroundColor: '#2563eb', padding: 10, borderRadius: 8, alignItems: 'center' },
-  buttonLabel: { color: '#fff', fontWeight: '700' },
 }

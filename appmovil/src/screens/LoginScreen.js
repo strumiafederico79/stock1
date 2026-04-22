@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 
+import { AppButton, AppInput, PGRLogo, colors } from '../components/UI'
 import { useAuth } from '../context/AuthContext'
 
 export default function LoginScreen() {
   const { login } = useAuth()
-  const [username, setUsername] = useState('admin')
-  const [password, setPassword] = useState('admin1234')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -24,22 +25,41 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.logo}>PGR STOCK CONTROL</Text>
-      <TextInput style={styles.input} value={username} onChangeText={setUsername} placeholder="Usuario" autoCapitalize="none" />
-      <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Contraseña" secureTextEntry />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Pressable style={styles.button} onPress={onSubmit} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonLabel}>Entrar</Text>}
-      </Pressable>
+      <PGRLogo subtitle="Inventario y alquileres profesionales" />
+      <View style={styles.formCard}>
+        <Text style={styles.welcome}>Bienvenido</Text>
+        <AppInput value={username} onChangeText={setUsername} placeholder="Usuario" autoCapitalize="none" />
+        <AppInput value={password} onChangeText={setPassword} placeholder="Contraseña" secureTextEntry />
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {loading ? <ActivityIndicator color={colors.primary} /> : <AppButton label="Entrar" onPress={onSubmit} disabled={loading} />}
+      </View>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, gap: 12, backgroundColor: '#111827' },
-  logo: { color: '#fff', fontWeight: '800', fontSize: 24, textAlign: 'center', marginBottom: 16 },
-  input: { backgroundColor: '#fff', borderRadius: 8, padding: 12 },
-  button: { backgroundColor: '#2563eb', padding: 12, borderRadius: 8, alignItems: 'center' },
-  buttonLabel: { color: '#fff', fontWeight: '700' },
-  error: { color: '#fca5a5', textAlign: 'center' },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+    gap: 14,
+    backgroundColor: colors.bg,
+  },
+  formCard: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
+  },
+  welcome: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  error: {
+    color: '#fca5a5',
+    textAlign: 'center',
+  },
 })

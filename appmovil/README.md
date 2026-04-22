@@ -51,6 +51,14 @@ La configuración para generar APK también está lista en `eas.json`.
 npm run build:aab
 ```
 
+
+## Mejoras incluidas (UI + seguridad)
+- Nuevo tema visual premium oscuro con acento dorado y logo PGR en login/ajustes.
+- Inputs y botones reutilizables para consistencia visual.
+- Validación/sanitización básica de datos de entrada en login y formularios móviles.
+- Manejo de sesión más seguro: expiración por inactividad (12h), renovación de sesión por actividad y limpieza automática si hay `401` del backend.
+- Timeout de red (15s) para evitar bloqueos indefinidos en solicitudes.
+
 ## Variables de entorno
 La app consume la URL del backend desde `app.json` en `expo.extra.apiBaseUrl`.
 
