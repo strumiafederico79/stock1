@@ -131,6 +131,15 @@ def create_item(payload: ItemCreate, db: Session = Depends(get_db), current_user
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail='Código, barcode o QR duplicado.') from exc
+    log_audit_event(
+        db,
+        action='ITEM_CREATED',
+        entity_type='item',
+        entity_id=str(item.id),
+        current_user=current_user,
+        details={'code': item.code, 'name': item.name, 'area_id': item.area_id},
+    )
+    db.commit()
     return _get_item_or_404(db, item.id)
 
 
@@ -141,6 +150,39 @@ def get_item_by_barcode(barcode: str, db: Session = Depends(get_db), _: User = D
     if not item:
         raise HTTPException(status_code=404, detail='Ítem no encontrado para ese barcode.')
     return item
+
+
+@router.get('/kits', response_model=list[ItemKitRead])
+def list_kits(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+    kits = db.execute(select(ItemKit).options(joinedload(ItemKit.components))).scalars().unique().all()
+    return [
+        ItemKitRead(
+            id=kit.id,
+            name=kit.name,
+            description=kit.description,
+            is_active=kit.is_active,
+            components=[{'item_id': component.item_id, 'quantity': component.quantity} for component in kit.components],
+        )
+        for kit in kits
+    ]
+
+
+@router.post('/kits', response_model=ItemKitRead, status_code=status.HTTP_201_CREATED)
+def create_kit(payload: ItemKitCreate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    kit = ItemKit(name=payload.name, description=payload.description, is_active=True)
+    db.add(kit)
+    db.flush()
+    for component in payload.components:
+        db.add(ItemKitComponent(kit_id=kit.id, item_id=component.item_id, quantity=component.quantity))
+    db.commit()
+    db.refresh(kit)
+    return ItemKitRead(
+        id=kit.id,
+        name=kit.name,
+        description=kit.description,
+        is_active=kit.is_active,
+        components=[{'item_id': component.item_id, 'quantity': component.quantity} for component in payload.components],
+    )
 
 
 @router.get('/{item_id}', response_model=ItemRead)
@@ -182,6 +224,15 @@ def update_item(item_id: int, payload: ItemUpdate, db: Session = Depends(get_db)
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail='No se pudo actualizar el ítem.') from exc
+    log_audit_event(
+        db,
+        action='ITEM_UPDATED',
+        entity_type='item',
+        entity_id=str(item.id),
+        current_user=current_user,
+        details={'updated_fields': list(data.keys())},
+    )
+    db.commit()
     return _get_item_or_404(db, item.id)
 
 

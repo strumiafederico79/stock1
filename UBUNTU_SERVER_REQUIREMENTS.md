@@ -30,7 +30,7 @@ Necesario solo si vas a correr el backend sin Docker.
 
 ## Puertos a abrir
 - 80/tcp para el frontend
-- 8000/tcp solo si querés exponer la API directa además del frontend
+- 8080/tcp solo si querés exponer la API directa además del frontend
 - 5432/tcp no hace falta abrirlo si PostgreSQL queda solo dentro de Docker
 
 ## Recomendación
@@ -43,6 +43,6 @@ Para producción real:
 ## Verificación rápida después del deploy
 ```bash
 curl http://127.0.0.1/health
-curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8080/health
 curl http://127.0.0.1/api/v1/catalogs/areas
 ```

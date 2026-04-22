@@ -6,7 +6,7 @@ export default function AppLayout({ children }) {
   const { user, isAdmin, logout } = useAuth()
 
   const links = [
-    { to: '/', label: 'Dashboard' },
+    { to: '/', label: 'Inicio' },
     { to: '/inventory', label: 'Inventario' },
     { to: '/reports', label: 'Reportes' },
     { to: '/purchases', label: 'Compras' },
@@ -14,7 +14,7 @@ export default function AppLayout({ children }) {
     { to: '/audit', label: 'Auditoría' },
     { to: '/settings', label: 'Configuración' },
     ...(isAdmin ? [{ to: '/items/new', label: 'Nuevo equipo' }] : []),
-    { to: '/rentals', label: 'Rental' },
+    { to: '/rentals', label: 'Alquileres' },
     { to: '/scanner', label: 'Escáner' },
     ...(isAdmin ? [{ to: '/users', label: 'Usuarios' }] : []),
   ]

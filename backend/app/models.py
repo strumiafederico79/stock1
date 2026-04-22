@@ -41,6 +41,7 @@ class MovementType(str, enum.Enum):
 
 class RentalStatus(str, enum.Enum):
     DRAFT = 'DRAFT'
+    RESERVED = 'RESERVED'
     ACTIVE = 'ACTIVE'
     PARTIAL_RETURN = 'PARTIAL_RETURN'
     CLOSED = 'CLOSED'
@@ -166,6 +167,9 @@ class Rental(Base):
     due_date: Mapped[date] = mapped_column(Date, nullable=False)
     return_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     responsible: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    deposit_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
+    deposit_status: Mapped[str] = mapped_column(String(30), default='PENDING', nullable=False)
+    late_fee_per_day: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
     status: Mapped[RentalStatus] = mapped_column(Enum(RentalStatus), default=RentalStatus.DRAFT, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -183,7 +187,13 @@ class RentalItem(Base):
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     returned_quantity: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     checkout_status: Mapped[str] = mapped_column(String(80), default='CHECKED_OUT', nullable=False)
+    return_status: Mapped[str] = mapped_column(String(80), default='PENDING', nullable=False)
     return_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checkout_checklist_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    return_checklist_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checkout_photos_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    return_photos_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    client_signature_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     unit_price: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
 
     rental: Mapped[Rental] = relationship(back_populates='items')

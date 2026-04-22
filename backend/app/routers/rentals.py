@@ -31,6 +31,9 @@ def _get_rental_or_404(db: Session, rental_id: int) -> Rental:
 
 
 def _apply_item_status_from_available(item: Item) -> None:
+    if item.quantity_total <= 0:
+        item.status = ItemStatus.OUT_OF_SERVICE
+        return
     if item.quantity_available <= 0:
         item.status = ItemStatus.RENTED
     elif item.quantity_available >= item.quantity_total:
@@ -98,7 +101,11 @@ def list_rentals(db: Session = Depends(get_db), _: User = Depends(get_current_us
         joinedload(Rental.items).joinedload(RentalItem.item).joinedload(Item.category),
         joinedload(Rental.items).joinedload(RentalItem.item).joinedload(Item.location),
     ).order_by(Rental.created_at.desc())
-    return db.execute(stmt).scalars().unique().all()
+    rentals = db.execute(stmt).scalars().unique().all()
+    for rental in rentals:
+        overdue_days = max((date.today() - rental.due_date).days, 0) if rental.status in {RentalStatus.ACTIVE, RentalStatus.PARTIAL_RETURN} else 0
+        rental.late_fee_total = overdue_days * float(rental.late_fee_per_day or 0)
+    return rentals
 
 
 @router.post('', response_model=RentalRead, status_code=status.HTTP_201_CREATED)
@@ -140,7 +147,15 @@ def add_item_to_rental(rental_id: int, payload: RentalItemAdd, db: Session = Dep
     if payload.unit_price is not None and current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail='Solo administradores pueden definir precios de alquiler.')
 
-    rental_item = RentalItem(rental_id=rental.id, item_id=item.id, quantity=payload.quantity, unit_price=payload.unit_price)
+    rental_item = RentalItem(
+        rental_id=rental.id,
+        item_id=item.id,
+        quantity=payload.quantity,
+        unit_price=payload.unit_price,
+        checkout_checklist_json=json.dumps(payload.checklist or {}),
+        checkout_photos_json=json.dumps(payload.photo_urls or []),
+        client_signature_name=payload.client_signature_name,
+    )
     db.add(rental_item)
     item.quantity_available -= payload.quantity
     _apply_item_status_from_available(item)
@@ -173,6 +188,15 @@ def add_item_to_rental(rental_id: int, payload: RentalItemAdd, db: Session = Dep
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail='El ítem ya fue agregado a este rental.') from exc
+    log_audit_event(
+        db,
+        action='RENTAL_ITEM_ADDED',
+        entity_type='rental',
+        entity_id=str(rental.id),
+        current_user=current_user,
+        details={'item_id': payload.item_id, 'quantity': payload.quantity},
+    )
+    db.commit()
     return _get_rental_or_404(db, rental_id)
 
 
@@ -190,9 +214,21 @@ def return_rental_item(rental_id: int, rental_item_id: int, payload: RentalRetur
         raise HTTPException(status_code=404, detail='Ítem no encontrado.')
 
     rental_item.returned_quantity += payload.quantity
+    rental_item.return_status = payload.return_status
     rental_item.return_notes = payload.notes
-    item.quantity_available = min(item.quantity_total, item.quantity_available + payload.quantity)
-    _apply_item_status_from_available(item)
+    rental_item.return_checklist_json = json.dumps(payload.checklist or {})
+    rental_item.return_photos_json = json.dumps(payload.photo_urls or [])
+    if payload.return_status == 'OK':
+        item.quantity_available = min(item.quantity_total, item.quantity_available + payload.quantity)
+        _apply_item_status_from_available(item)
+    elif payload.return_status == 'DAMAGED':
+        item.status = ItemStatus.DAMAGED
+    elif payload.return_status == 'MAINTENANCE_REQUIRED':
+        item.status = ItemStatus.MAINTENANCE
+    elif payload.return_status == 'LOST':
+        item.quantity_total = max(0, item.quantity_total - payload.quantity)
+        item.quantity_available = min(item.quantity_available, item.quantity_total)
+        _apply_item_status_from_available(item)
 
     movement = Movement(
         item_id=item.id,
