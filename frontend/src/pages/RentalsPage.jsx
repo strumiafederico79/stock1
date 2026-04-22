@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import AlertBox from '../components/AlertBox'
 import SectionTitle from '../components/SectionTitle'
+import { useAuth } from '../context/AuthContext'
 
 const initialRental = {
   client_name: '',
@@ -17,11 +18,13 @@ const initialRental = {
 const initialAddItem = {
   item_id: '',
   quantity: 1,
+  unit_price: '',
   performed_by: '',
   notes: '',
 }
 
 export default function RentalsPage() {
+  const { isAdmin } = useAuth()
   const [rentals, setRentals] = useState([])
   const [items, setItems] = useState([])
   const [selectedRentalId, setSelectedRentalId] = useState('')
@@ -85,6 +88,7 @@ export default function RentalsPage() {
       await api.addRentalItem(selectedRentalId, {
         item_id: Number(addItemForm.item_id),
         quantity: Number(addItemForm.quantity),
+        unit_price: isAdmin && addItemForm.unit_price !== '' ? Number(addItemForm.unit_price) : null,
         performed_by: addItemForm.performed_by || null,
         notes: addItemForm.notes || null,
       })
@@ -107,6 +111,22 @@ export default function RentalsPage() {
       })
       setMessage('Devolución registrada.')
       await loadData()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const downloadReceipt = async () => {
+    if (!selectedRentalId) return
+    setError('')
+    try {
+      const blob = await api.getRentalReceipt(selectedRentalId)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `rental_${selectedRentalId}_receipt.pdf`
+      link.click()
+      window.URL.revokeObjectURL(url)
     } catch (err) {
       setError(err.message)
     }
@@ -179,6 +199,9 @@ export default function RentalsPage() {
               <p>
                 <strong>Estado:</strong> {selectedRental.status}
               </p>
+              <button className="button secondary" type="button" onClick={downloadReceipt}>
+                Emitir comprobante PDF
+              </button>
             </div>
           ) : (
             <p className="muted-text">Creá o seleccioná un rental para cargar equipos.</p>
@@ -204,6 +227,19 @@ export default function RentalsPage() {
             <label>Cantidad</label>
             <input type="number" min="1" value={addItemForm.quantity} onChange={(event) => setAddItemForm((current) => ({ ...current, quantity: event.target.value }))} />
           </div>
+          {isAdmin ? (
+            <div className="field">
+              <label>Precio unitario (solo admin)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={addItemForm.unit_price}
+                onChange={(event) => setAddItemForm((current) => ({ ...current, unit_price: event.target.value }))}
+                placeholder="Ej: 15000"
+              />
+            </div>
+          ) : null}
           <div className="field">
             <label>Responsable</label>
             <input value={addItemForm.performed_by} onChange={(event) => setAddItemForm((current) => ({ ...current, performed_by: event.target.value }))} />
@@ -226,6 +262,8 @@ export default function RentalsPage() {
                   <th>Equipo</th>
                   <th>Salió</th>
                   <th>Devuelto</th>
+                  <th>P. Unit.</th>
+                  <th>Subtotal</th>
                   <th></th>
                 </tr>
               </thead>
@@ -237,6 +275,8 @@ export default function RentalsPage() {
                     </td>
                     <td>{rentalItem.quantity}</td>
                     <td>{rentalItem.returned_quantity}</td>
+                    <td>${Number(rentalItem.unit_price || 0).toFixed(2)}</td>
+                    <td>${(Number(rentalItem.unit_price || 0) * Number(rentalItem.quantity)).toFixed(2)}</td>
                     <td>
                       <button
                         className="button tiny"

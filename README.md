@@ -2,6 +2,18 @@
 
 App web responsive para control de stock por áreas, pensada para depósito, rental y trazabilidad por código de barras.
 
+## Deploy directo
+
+Para desplegar en producción con todos los comandos (Docker y sin Docker):
+
+- Guía completa: `DEPLOY.md`
+- Script rápido: `scripts/deploy_prod.sh`
+
+Antes de deploy:
+
+- `cp .env.example .env`
+- `cp backend/.env.example backend/.env`
+
 ## Qué incluye esta versión
 
 - Stock dividido por áreas: Sonido, Iluminacion, Pantalla, Layher, Extras y Rental.

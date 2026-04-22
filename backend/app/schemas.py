@@ -247,3 +247,133 @@ class DashboardSummary(BaseModel):
     maintenance_items: int
     by_area: list[DashboardAreaStat]
     by_status: list[DashboardStatusStat]
+
+
+class DashboardMovementStat(BaseModel):
+    item_id: int
+    item_name: str
+    total_outgoing: int
+
+
+class DashboardRestockSuggestion(BaseModel):
+    item_id: int
+    item_name: str
+    quantity_available: int
+    min_stock: int
+    suggested_restock: int
+    demand_velocity_30d: int
+
+
+class DashboardAlertItem(BaseModel):
+    item_id: int
+    item_name: str
+    quantity_available: int
+    min_stock: int
+    deficit: int
+
+
+class DashboardInsights(BaseModel):
+    generated_at: datetime
+    period_days: int
+    outgoing_movements_30d: int
+    incoming_movements_30d: int
+    unique_items_moved_30d: int
+    overdue_rentals: int
+    due_soon_rentals: int
+    top_outgoing_items: list[DashboardMovementStat]
+    critical_stock_items: list[DashboardAlertItem]
+    restock_suggestions: list[DashboardRestockSuggestion]
+
+
+class AuditLogRead(BaseModel):
+    id: int
+    action: str
+    entity_type: str
+    entity_id: str
+    username: str
+    user_full_name: str
+    details_json: Optional[str] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SmartAlert(BaseModel):
+    type: str
+    severity: str
+    title: str
+    message: str
+    channels: list[str]
+    entity_type: Optional[str] = None
+    entity_id: Optional[str] = None
+
+
+class SmartAlertsResponse(BaseModel):
+    generated_at: datetime
+    total_alerts: int
+    alerts: list[SmartAlert]
+
+
+class MaintenanceItem(BaseModel):
+    item_id: int
+    item_code: str
+    item_name: str
+    area_name: str
+    status: ItemStatus
+    last_maintenance_at: Optional[datetime] = None
+    days_without_maintenance: int
+    risk_score: int
+    recommendation: str
+
+
+class MaintenanceOverview(BaseModel):
+    generated_at: datetime
+    total_items_in_maintenance: int
+    preventive_candidates: int
+    predictive_candidates: int
+    items: list[MaintenanceItem]
+
+
+class ReceiptBrandingConfig(BaseModel):
+    business_name: str = 'PGR STOCK CONTROL'
+    business_tax_id: str = 'CUIT 00-00000000-0'
+    business_address: str = 'Sin dirección configurada'
+    footer_note: str = 'Gracias por su alquiler.'
+    currency_symbol: str = '$'
+
+
+class ScheduledReportCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    report_type: str = Field(pattern='^(inventory|rentals)$')
+    report_format: str = Field(default='csv', pattern='^(csv|excel|pdf)$')
+    interval_minutes: int = Field(default=1440, ge=5, le=10080)
+    recipients: Optional[str] = None
+    is_active: bool = True
+
+
+class ScheduledReportUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=2, max_length=120)
+    report_format: Optional[str] = Field(default=None, pattern='^(csv|excel|pdf)$')
+    interval_minutes: Optional[int] = Field(default=None, ge=5, le=10080)
+    recipients: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class ScheduledReportRead(BaseModel):
+    id: int
+    name: str
+    report_type: str
+    report_format: str
+    interval_minutes: int
+    recipients: Optional[str]
+    is_active: bool
+    next_run_at: Optional[datetime] = None
+    last_run_at: Optional[datetime] = None
+    last_status: Optional[str] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RoleDashboardOverview(BaseModel):
+    role: UserRole
+    title: str
+    recommended_actions: list[str]
