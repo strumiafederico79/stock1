@@ -257,6 +257,50 @@ export default function RentalsPage() {
     }
   }
 
+  const convertQuote = async (quoteId) => {
+    setError('')
+    try {
+      const rental = await api.convertQuote(quoteId)
+      setSelectedRentalId(String(rental.id))
+      setMessage(`Cotización #${quoteId} convertida a alquiler #${rental.id}.`)
+      await loadData()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const createKit = async (event) => {
+    event.preventDefault()
+    setError('')
+    try {
+      await api.createKit({
+        name: kitForm.name,
+        description: kitForm.description || null,
+        components: [{ item_id: Number(kitForm.item_id), quantity: Number(kitForm.quantity) }],
+      })
+      setKitForm({ name: '', description: '', item_id: '', quantity: 1 })
+      await loadData()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const downloadReceipt = async () => {
+    if (!selectedRentalId) return
+    setError('')
+    try {
+      const blob = await api.getRentalReceipt(selectedRentalId)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `alquiler_${selectedRentalId}_comprobante.pdf`
+      link.click()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   return (
     <div>
       <SectionTitle title="Alquileres" subtitle="Alta de salidas, carga de equipos y devoluciones por cantidad con estado." />
