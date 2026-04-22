@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import get_settings
 from app.database import get_db
 from app.dependencies import get_current_user, require_admin
-from app.models import Area, Category, ControlType, Item, ItemKit, ItemKitComponent, ItemStatus, Location, Movement, User
-from app.schemas import ItemCreate, ItemKitCreate, ItemKitRead, ItemRead, ItemUpdate, MovementRead
+from app.models import Area, Category, ControlType, Item, ItemStatus, Location, Movement, User
+from app.schemas import ItemCreate, ItemRead, ItemUpdate, MovementRead
 from app.services.audit import log_audit_event
 from app.services.barcodes import generate_code128_png, generate_qr_png
 

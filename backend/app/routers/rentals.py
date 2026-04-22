@@ -1,6 +1,5 @@
 from datetime import date
 from io import BytesIO
-import json
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from reportlab.lib.pagesizes import letter
@@ -11,8 +10,8 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import ControlType, Item, ItemStatus, Movement, MovementType, Rental, RentalItem, RentalQuote, RentalStatus, User, UserRole
-from app.schemas import RentalCalendarEntry, RentalCreate, RentalItemAdd, RentalQuoteCreate, RentalQuoteRead, RentalRead, RentalReturn
+from app.models import ControlType, Item, ItemStatus, Movement, MovementType, Rental, RentalItem, RentalStatus, User, UserRole
+from app.schemas import RentalCreate, RentalItemAdd, RentalRead, RentalReturn
 from app.services.audit import log_audit_event
 from app.services.settings import get_receipt_config
 
@@ -261,72 +260,6 @@ def return_rental_item(rental_id: int, rental_item_id: int, payload: RentalRetur
     )
     db.commit()
     return _get_rental_or_404(db, rental_id)
-
-
-@router.get('/meta/calendar', response_model=list[RentalCalendarEntry])
-def rental_calendar(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    stmt = (
-        select(Rental.id, Rental.start_date, Rental.due_date, Rental.status, RentalItem.item_id, Item.name, RentalItem.quantity)
-        .join(RentalItem, RentalItem.rental_id == Rental.id)
-        .join(Item, Item.id == RentalItem.item_id)
-        .where(Rental.status.in_([RentalStatus.RESERVED, RentalStatus.ACTIVE, RentalStatus.PARTIAL_RETURN]))
-        .order_by(Rental.start_date.asc())
-    )
-    rows = db.execute(stmt).all()
-    return [
-        RentalCalendarEntry(
-            rental_id=row[0],
-            start_date=row[1],
-            due_date=row[2],
-            status=row[3],
-            item_id=row[4],
-            item_name=row[5],
-            quantity=row[6],
-        )
-        for row in rows
-    ]
-
-
-@router.post('/meta/quotes', response_model=RentalQuoteRead, status_code=status.HTTP_201_CREATED)
-def create_quote(payload: RentalQuoteCreate, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    quote = RentalQuote(**payload.model_dump(), status='DRAFT')
-    db.add(quote)
-    db.commit()
-    db.refresh(quote)
-    return quote
-
-
-@router.get('/meta/quotes', response_model=list[RentalQuoteRead])
-def list_quotes(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return db.execute(select(RentalQuote).order_by(RentalQuote.created_at.desc())).scalars().all()
-
-
-@router.post('/meta/quotes/{quote_id}/convert', response_model=RentalRead)
-def convert_quote_to_rental(quote_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    quote = db.get(RentalQuote, quote_id)
-    if not quote:
-        raise HTTPException(status_code=404, detail='Cotización no encontrada.')
-    rental = Rental(
-        client_name=quote.client_name,
-        event_name=quote.event_name,
-        start_date=quote.start_date,
-        due_date=quote.due_date,
-        notes=quote.notes,
-        status=RentalStatus.RESERVED,
-    )
-    quote.status = 'CONVERTED'
-    db.add(rental)
-    db.flush()
-    log_audit_event(
-        db,
-        action='QUOTE_CONVERTED',
-        entity_type='quote',
-        entity_id=str(quote.id),
-        current_user=current_user,
-        details={'rental_id': rental.id},
-    )
-    db.commit()
-    return _get_rental_or_404(db, rental.id)
 
 
 @router.get('/{rental_id}/receipt.pdf')

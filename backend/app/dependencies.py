@@ -53,7 +53,6 @@ ROLE_PERMISSIONS = {
         'audit.read',
         'settings.manage',
         'maintenance.read',
-        'maintenance.write',
         'users.manage',
     },
     UserRole.OPERATOR: {

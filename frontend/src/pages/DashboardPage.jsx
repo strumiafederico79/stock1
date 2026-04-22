@@ -9,17 +9,15 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState(null)
   const [insights, setInsights] = useState(null)
   const [roleOverview, setRoleOverview] = useState(null)
-  const [finance, setFinance] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([api.getDashboard(), api.getDashboardInsights(), api.getRoleOverview(), api.getDashboardFinance()])
-      .then(([summaryData, insightsData, roleData, financeData]) => {
+    Promise.all([api.getDashboard(), api.getDashboardInsights(), api.getRoleOverview()])
+      .then(([summaryData, insightsData, roleData]) => {
         setSummary(summaryData)
         setInsights(insightsData)
         setRoleOverview(roleData)
-        setFinance(financeData)
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
@@ -163,18 +161,6 @@ export default function DashboardPage() {
               </table>
             </div>
           </div>
-          {finance ? (
-            <div className="card">
-              <h3>Finanzas de alquiler</h3>
-              <div className="kpi-row"><span>Facturación estimada</span><strong>${Number(finance.rental_revenue).toFixed(2)}</strong></div>
-              <div className="kpi-row"><span>Multas por retraso</span><strong>${Number(finance.collected_late_fees).toFixed(2)}</strong></div>
-              <div className="kpi-row"><span>Depósitos retenidos</span><strong>${Number(finance.estimated_deposits_held).toFixed(2)}</strong></div>
-              <h4>Top clientes</h4>
-              <ul>
-                {finance.top_clients.map((row) => <li key={row.client_name}>{row.client_name}: {row.rentals} alquileres</li>)}
-              </ul>
-            </div>
-          ) : null}
         </>
       ) : null}
     </div>

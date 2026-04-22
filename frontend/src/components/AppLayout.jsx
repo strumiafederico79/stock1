@@ -25,7 +25,7 @@ export default function AppLayout({ children }) {
         <div className="brand-card">
           <span className="brand-kicker">Sistema inteligente</span>
           <h1>PGR STOCK CONTROL</h1>
-          <p>Control avanzado de inventario, alquileres y trazabilidad operativa en tiempo real.</p>
+          <p>Control avanzado de inventario, rental y trazabilidad operativa en tiempo real.</p>
         </div>
 
         <div className="user-card">

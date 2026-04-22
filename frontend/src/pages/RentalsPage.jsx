@@ -209,91 +209,7 @@ export default function RentalsPage() {
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `alquiler_${selectedRentalId}_comprobante.pdf`
-      link.click()
-      window.URL.revokeObjectURL(url)
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  const createQuote = async (event) => {
-    event.preventDefault()
-    setError('')
-    try {
-      await api.createQuote({ ...quoteForm, total_amount: Number(quoteForm.total_amount) || 0 })
-      setQuoteForm({ client_name: '', event_name: '', start_date: '', due_date: '', notes: '', total_amount: 0 })
-      await loadData()
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  const convertQuote = async (quoteId) => {
-    setError('')
-    try {
-      const rental = await api.convertQuote(quoteId)
-      setSelectedRentalId(String(rental.id))
-      setMessage(`Cotización #${quoteId} convertida a alquiler #${rental.id}.`)
-      await loadData()
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  const createKit = async (event) => {
-    event.preventDefault()
-    setError('')
-    try {
-      await api.createKit({
-        name: kitForm.name,
-        description: kitForm.description || null,
-        components: [{ item_id: Number(kitForm.item_id), quantity: Number(kitForm.quantity) }],
-      })
-      setKitForm({ name: '', description: '', item_id: '', quantity: 1 })
-      await loadData()
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  const convertQuote = async (quoteId) => {
-    setError('')
-    try {
-      const rental = await api.convertQuote(quoteId)
-      setSelectedRentalId(String(rental.id))
-      setMessage(`Cotización #${quoteId} convertida a alquiler #${rental.id}.`)
-      await loadData()
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  const createKit = async (event) => {
-    event.preventDefault()
-    setError('')
-    try {
-      await api.createKit({
-        name: kitForm.name,
-        description: kitForm.description || null,
-        components: [{ item_id: Number(kitForm.item_id), quantity: Number(kitForm.quantity) }],
-      })
-      setKitForm({ name: '', description: '', item_id: '', quantity: 1 })
-      await loadData()
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  const downloadReceipt = async () => {
-    if (!selectedRentalId) return
-    setError('')
-    try {
-      const blob = await api.getRentalReceipt(selectedRentalId)
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `alquiler_${selectedRentalId}_comprobante.pdf`
+      link.download = `rental_${selectedRentalId}_receipt.pdf`
       link.click()
       window.URL.revokeObjectURL(url)
     } catch (err) {
@@ -392,8 +308,6 @@ export default function RentalsPage() {
                 <strong>Estado:</strong> {statusLabels[selectedRental.status] || selectedRental.status}
                 {isOverdue(selectedRental) ? ' · VENCIDO' : ''}
               </p>
-              <p><strong>Depósito:</strong> ${Number(selectedRental.deposit_amount || 0).toFixed(2)} ({selectedRental.deposit_status})</p>
-              <p><strong>Multa estimada:</strong> ${Number(selectedRental.late_fee_total || 0).toFixed(2)}</p>
               <button className="button secondary" type="button" onClick={downloadReceipt}>
                 Emitir comprobante PDF
               </button>
@@ -516,69 +430,33 @@ export default function RentalsPage() {
                   <th>Equipo</th>
                   <th>Salió</th>
                   <th>Devuelto</th>
-                  <th>Estado devolución</th>
                   <th>P. Unit.</th>
                   <th>Subtotal</th>
-                  <th>Acción</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
-                {selectedRental.items.map((rentalItem) => {
-                  const pending = Math.max(0, rentalItem.quantity - rentalItem.returned_quantity)
-                  const returnForm = returnsByItemId[rentalItem.id] || initialReturnForm
-                  return (
-                    <tr key={rentalItem.id}>
-                      <td>
-                        {rentalItem.item.code} · {rentalItem.item.name}
-                      </td>
-                      <td>{rentalItem.quantity}</td>
-                      <td>{rentalItem.returned_quantity}</td>
-                      <td>{returnStatusLabels[rentalItem.return_status] || rentalItem.return_status}</td>
-                      <td>${Number(rentalItem.unit_price || 0).toFixed(2)}</td>
-                      <td>${(Number(rentalItem.unit_price || 0) * Number(rentalItem.quantity)).toFixed(2)}</td>
-                      <td>
-                        <div className="field" style={{ marginBottom: 8 }}>
-                          <input
-                            type="number"
-                            min="1"
-                            max={pending || 1}
-                            value={returnForm.quantity}
-                            disabled={pending <= 0}
-                            onChange={(event) => updateReturnForm(rentalItem.id, { quantity: event.target.value })}
-                            title="Cantidad a devolver"
-                          />
-                        </div>
-                        <div className="field" style={{ marginBottom: 8 }}>
-                          <select
-                            value={returnForm.return_status}
-                            disabled={pending <= 0}
-                            onChange={(event) => updateReturnForm(rentalItem.id, { return_status: event.target.value })}
-                          >
-                            {Object.entries(returnStatusLabels).map(([value, label]) => (
-                              <option key={value} value={value}>{label}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="field" style={{ marginBottom: 8 }}>
-                          <input
-                            value={returnForm.notes}
-                            disabled={pending <= 0}
-                            onChange={(event) => updateReturnForm(rentalItem.id, { notes: event.target.value })}
-                            placeholder="Notas devolución"
-                          />
-                        </div>
-                        <button
-                          className="button tiny"
-                          type="button"
-                          disabled={pending <= 0}
-                          onClick={() => returnItem(rentalItem.id)}
-                        >
-                          Devolver
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
+                {selectedRental.items.map((rentalItem) => (
+                  <tr key={rentalItem.id}>
+                    <td>
+                      {rentalItem.item.code} · {rentalItem.item.name}
+                    </td>
+                    <td>{rentalItem.quantity}</td>
+                    <td>{rentalItem.returned_quantity}</td>
+                    <td>${Number(rentalItem.unit_price || 0).toFixed(2)}</td>
+                    <td>${(Number(rentalItem.unit_price || 0) * Number(rentalItem.quantity)).toFixed(2)}</td>
+                    <td>
+                      <button
+                        className="button tiny"
+                        type="button"
+                        disabled={rentalItem.returned_quantity >= rentalItem.quantity}
+                        onClick={() => returnItem(rentalItem.id)}
+                      >
+                        Devolver 1
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           ) : (
